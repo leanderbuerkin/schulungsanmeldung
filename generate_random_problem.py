@@ -12,7 +12,7 @@ NUMBER_OF_JULEIS_FROM_BAWUE = 9
 MAX_PARTICIPANTS_MIN = 6
 MAX_PARTICIPANTS_MAX = 20
 
-directory_path = Path(f"data/random_{NUMBER_OF_SCHULUNGEN}_Schulungen_{NUMBER_OF_JULEIS}_Juleis")
+directory_path = Path(f"problems/random_{NUMBER_OF_SCHULUNGEN}_Schulungen_{NUMBER_OF_JULEIS}_Juleis")
 makedirs(directory_path, exist_ok=True)
 
 # The following list is AI generated
