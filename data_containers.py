@@ -4,8 +4,7 @@ from typing import Any
 from numpy import ndarray
 from pandas import DataFrame, isna
 
-# It would be better to raise an error
-# But maybe this is not even issue in Odoo
+# Ask GS, which value or error is better.
 DEFAULT_MAX_PARTICIPANTS_PER_SCHULUNG = 10
 
 FROM_BAWUE_STRING = "FROM BAWUE"
@@ -25,6 +24,7 @@ class JuLei:
 
 @dataclass
 class Schulung:
+    schulungsnummer: str
     name: str
     max_participants: int
     @property
@@ -32,16 +32,16 @@ class Schulung:
         return self.name, str(self.max_participants)
 
     def __init__(self, data: ndarray) -> None:
-        self.name = data[0]
+        self.schulungsnummer = data[0]
+        self.name = data[1]
         self.max_participants = DEFAULT_MAX_PARTICIPANTS_PER_SCHULUNG
-        if not isna(data[1]):
-            self.max_participants = data[1]
+        if not isna(data[2]):
+            self.max_participants = data[2]
 
 @dataclass
-class Preferences:
+class Problem:
     file_information: dict[str, Any]
     juleis: list[JuLei]
     schulungen: list[Schulung]
     preferences: DataFrame
-
-
+    allocations: DataFrame
