@@ -23,7 +23,7 @@ python3 -m venv .venv
 Remove the part before the `&` if you don't use a virtual python environment.
 
 ```bash
-source .venv/bin/activate & python3 -m pip install -r requirements.txt
+source .venv/bin/activate & pip install -r requirements.txt
 ```
 
 ## Contribute
@@ -31,7 +31,7 @@ source .venv/bin/activate & python3 -m pip install -r requirements.txt
 ### Save All Needed Packages
 
 ```bash
-python3 -m pip freeze > requirements.txt
+pip freeze > requirements.txt
 ```
 
 ## ToDos
