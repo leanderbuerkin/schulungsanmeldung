@@ -6,9 +6,9 @@ from faker import Faker
 
 from data_containers import FROM_BAWUE_STRING, NOT_FROM_BAWUE_STRING
 
-NUMBER_OF_SCHULUNGEN = 10
-NUMBER_OF_JULEIS = 10
-NUMBER_OF_JULEIS_FROM_BAWUE = 9
+NUMBER_OF_SCHULUNGEN = 4
+NUMBER_OF_JULEIS = 6
+NUMBER_OF_JULEIS_FROM_BAWUE = 3
 MAX_PARTICIPANTS_MIN = 6
 MAX_PARTICIPANTS_MAX = 20
 
@@ -56,7 +56,7 @@ with open(directory_path/"juleis.csv", "w") as file:
     writer.writerow(["Name", "From BaWue"])
     for index in range(NUMBER_OF_JULEIS):
         bawue_string = FROM_BAWUE_STRING
-        if index > NUMBER_OF_JULEIS_FROM_BAWUE:
+        if index >= NUMBER_OF_JULEIS_FROM_BAWUE:
             bawue_string = NOT_FROM_BAWUE_STRING
         writer.writerow([
             fake.name(),
