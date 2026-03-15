@@ -1,7 +1,7 @@
 # Schlungsanmeldung
 
 This repository provides Python code to assign humans (by priorities and rules) to events.
-It is used by the JDAV BaWü to determine the participants per Schulung.
+It is used by the JDAV BaWü to determine the JuLeis per Schulung.
 
 This repository defines a standard with tests and debugging functions
 so that everybody can easily create and verify new algorithms.
