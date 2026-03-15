@@ -37,6 +37,8 @@ def get_allocations_by_priorities(p: Problem,
     return allocations
 
 def allocate_by_priority(p: Problem, to_yield: ToYield = ToYield(True, False, True)) -> Generator[tuple[Problem, str]]:
+    """Weakness: Prefers high priorities and therefore encitivices people to only provide one choice.
+    Shows its weaknesses especially when trying to get all juleis a place."""
     p, message = remove_negative_preferences(p)
     p, message = scale_each_preference_column_to_one(p)
     if to_yield.cleanup:
@@ -56,7 +58,14 @@ def allocate_by_priority(p: Problem, to_yield: ToYield = ToYield(True, False, Tr
             if to_yield.allocations:
                 yield p, f"allocated_{julei.name}_to_{schulung.schulungsnummer}"
 
+
+
+
+
+
+
 def reallocate_to_fit_all_juleis(p: Problem, to_yield: ToYield = ToYield(True, False, True)) -> Generator[tuple[Problem, str]]:
+    """Unfinished"""
     allocations_of_unassigned_juleis = get_allocations_by_priorities(p, lambda j: p.get_allocation(j) is None)
     for schulung, julei, _ in allocations_of_unassigned_juleis:
         if not p.get_allocation(julei) is None:
@@ -80,6 +89,7 @@ def explore_reallocation(
         full_schulung: Schulung,
         visited_schulungen: set[Schulung]
     ) -> list[tuple[Schulung, JuLei]] | None:
+    """Unfinished"""
     visited_schulungen = visited_schulungen | {full_schulung}
     reallocations = get_allocations_by_priorities(p, lambda j: p.get_allocation(j) is full_schulung)
 
