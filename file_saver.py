@@ -1,123 +1,103 @@
 """
-Not using datafrems-image because it does not allow to set edgecolors and fonts
+Not using dataframes-image because it does not allow to set edgecolors and fonts
 and is tidious to work with.
+Not using images because they take long to generate and are not readable
 """
-from csv import writer
-from os import makedirs
 from pathlib import Path
-import matplotlib.pyplot as plt
-from matplotlib.table import Table
 
-from config import FROM_BW_STRING, NOT_FROM_BW_STRING, NUMBER_OF_PRIORITY_LEVELS, STRING_TO_MARK_ALLOCATIONS
-from data_containers import Problem
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.utils import get_column_letter
 
-def _get_row_for_csv(p: Problem, index_julei: int) -> list[str]:
-    row: list[str] = [""]*len(p.schulung_max_juleis)
+from config import DATA_DIRECTORY
+from config import FROM_BW_STRING, NOT_FROM_BW_STRING, STRING_TO_MARK_ALLOCATIONS
+from data_containers import JuLei, Problem
+from logger import log_time
 
-    for priority_level, indizes_schulungen in enumerate(p.julei_priorities[index_julei]):
-        for index_schulung in indizes_schulungen:
-            row[index_schulung] = str(priority_level)
+FIRST_INDEX_IN_XLSX = 1
+NUMBER_OF_HEADER_COLUMNS = 1
+NUMBER_OF_HEADER_ROWS = 1
+FIRST_CONTENT_COLUMN_INDEX = FIRST_INDEX_IN_XLSX + NUMBER_OF_HEADER_COLUMNS
+FIRST_CONTENT_ROW_INDEX = FIRST_INDEX_IN_XLSX + NUMBER_OF_HEADER_ROWS
 
-    allocated_schulung_index = p.julei_allocations[index_julei]
-    if allocated_schulung_index is not None:
-        row[allocated_schulung_index] = STRING_TO_MARK_ALLOCATIONS
+WIDTH_OF_ONE_DIGIT = 1.5  # guess
+TRANSPARENCY_STEPS = 50
+TRANSPARENCY_LEVELS = 3
 
-    if p.julei_from_bw[index_julei]:
-        row = [FROM_BW_STRING] + row
+def _increase_transparency(rgb: tuple[int, int, int]) -> tuple[int, int, int]:
+    rgb = (rgb[0] + TRANSPARENCY_STEPS, rgb[1] + TRANSPARENCY_STEPS, rgb[2] + TRANSPARENCY_STEPS)
+    return min(255, rgb[0]), min(255, rgb[1]), min(255, rgb[2])
+
+def _color(julei: JuLei, transparency: int | None=None) -> str:
+    if julei.from_bw:
+        rgb = (40, 0, 80)
     else:
-        row = [NOT_FROM_BW_STRING] + row
-    return row
+        rgb = (0, 40, 80)
+    if transparency is not None:
+        rgb = _increase_transparency(rgb)
+        for _ in range(min(TRANSPARENCY_LEVELS-1, transparency)):
+            rgb = _increase_transparency(rgb)
+    return f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
 
-def save_as_csv(p: Problem, output_path_without_file_extension: Path) -> None:
-    output_path = output_path_without_file_extension.with_suffix(".csv")
-    makedirs(output_path.parent, exist_ok=True)
-    with open(output_path, "w") as file:
-        output = writer(file)
-        output.writerow(["Max. JuLeis:"] + [str(n) for n in p.schulung_max_juleis])
-        for index_julei in range(len(p.julei_from_bw)):
-            output.writerow(_get_row_for_csv(p, index_julei))
+def save_to_new_xlsx(p: Problem, title: str) -> Path:
+    xlsx_file_path = DATA_DIRECTORY/f"{p.name}.xlsx"
+    Workbook().save(xlsx_file_path)
+    return save_to_xlsx(p, xlsx_file_path, title)
+
+def save_to_xlsx(p: Problem, xlsx_file_path: Path, title: str) -> Path:
+    xlsx_file = load_workbook(xlsx_file_path)
+    table = xlsx_file.create_sheet(title)
+
+    table["A1"] = "Plätze:"
+    table["A1"].fill = PatternFill(start_color="000050", fill_type="solid")
+    table["A1"].font = Font(bold=True, color="FFFFFF")
+
+    for schulung_index, capacity in enumerate(p.schulungen):
+        column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + schulung_index)
+        table.column_dimensions[column_letter].width = 2*WIDTH_OF_ONE_DIGIT
+
+        cell_index = column_letter + str(FIRST_INDEX_IN_XLSX)
+        table[cell_index] = str(capacity)
+        table[cell_index].fill = PatternFill(start_color="000050", fill_type="solid")
+        table[cell_index].font = Font(bold=True, color="FFFFFF")
 
 
-FONT_SIZE = 100
-FIRST_COLUMN_WIDTH_MULTIPLIER = 5
+    for julei_index, julei in enumerate(p.juleis):
+        column_letter = get_column_letter(FIRST_INDEX_IN_XLSX)
+        row_index = FIRST_CONTENT_ROW_INDEX + julei_index
 
-def save_as_image(p: Problem, output_path_without_file_extension: Path) -> None:
-    output_path = output_path_without_file_extension.with_suffix(".png")
-    makedirs(output_path.parent, exist_ok=True)
-
-    number_of_columns = len(p.schulung_max_juleis) + FIRST_COLUMN_WIDTH_MULTIPLIER
-    number_of_rows = len(p.julei_from_bw) + 1
-
-    cell_width = 1 / number_of_columns
-    cell_height = 1 / number_of_rows
-
-    _, ax = plt.subplots(figsize=(number_of_columns, number_of_rows)) # pyright: ignore[reportUnknownMemberType]
-    ax.set_axis_off()
-    table = Table(ax)
-
-    table.add_cell( # pyright: ignore[reportUnknownMemberType]
-        row=0,
-        col=0,
-        width=cell_width*FIRST_COLUMN_WIDTH_MULTIPLIER,
-        height=cell_height,
-        text="Max. JuLeis:",
-        facecolor="darkblue",
-        #edgecolor='none'
-    ).set_text_props(color='white', weight='bold', size=FONT_SIZE)
-
-    for index_schulung, max_juleis in enumerate(p.schulung_max_juleis):
-        table.add_cell( # pyright: ignore[reportUnknownMemberType]
-            row=0,
-            col=index_schulung+1,
-            width=cell_width,
-            height=cell_height,
-            text=str(max_juleis),
-            loc="center",
-            facecolor="darkblue",
-            #edgecolor='none'
-        ).set_text_props(color='white', weight='bold', size=FONT_SIZE)
-
-    for index_julei, from_bw in enumerate(p.julei_from_bw):
-        if from_bw:
-            facecolor = ('blue')
+        cell_index = column_letter + str(row_index)
+        if julei.from_bw:
+            table[cell_index] = FROM_BW_STRING
+            table[cell_index].fill = PatternFill(start_color=_color(julei), fill_type="solid")
+            table[cell_index].font = Font(bold=True, color="FFFFFF")
         else:
-            facecolor = ('purple')
-        table.add_cell( # pyright: ignore[reportUnknownMemberType]
-            row=index_julei+1,
-            col=0,
-            width=cell_width*FIRST_COLUMN_WIDTH_MULTIPLIER,
-            height=cell_height,
-            text=FROM_BW_STRING if from_bw else NOT_FROM_BW_STRING,
-            facecolor=facecolor,
-            #edgecolor='none'
-        ).set_text_props(color='white', weight='bold', size=FONT_SIZE)  #, rotation=90
+            table[cell_index] = NOT_FROM_BW_STRING
+            table[cell_index].fill = PatternFill(start_color=_color(julei), fill_type="solid")
+            table[cell_index].font = Font(bold=True, color="FFFFFF")
 
-    for index_julei, priorities in enumerate(p.julei_priorities):
-        for priority_level, indizes_schulungen in enumerate(priorities):
-            for index_schulung in indizes_schulungen:
-                if p.julei_allocations[index_julei] == index_schulung:
-                    facecolor = 'lime'
-                elif p.is_full(index_schulung):
-                    facecolor = ('red', 0.5)
-                elif p.julei_allocations[index_julei] is not None:
-                    facecolor = ('lime', 0.3)
-                elif p.julei_from_bw[index_julei]:
-                    facecolor = ('blue', 0.4*(1-priority_level/NUMBER_OF_PRIORITY_LEVELS))
-                else:
-                    facecolor = ('purple', 0.4*(1-priority_level/NUMBER_OF_PRIORITY_LEVELS))
+        for priority, schulung_index in enumerate(julei.wishes):
+            if schulung_index == julei.allocated:
+                continue
+            column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + schulung_index)
+            cell_index = column_letter + str(row_index)
+            table[cell_index] = priority
+            table[cell_index].alignment = Alignment(horizontal='center', vertical='center')
+            if julei.allocated is None:
+                table[cell_index].fill = PatternFill(start_color=_color(julei, priority), fill_type="solid")
+                table[cell_index].font = Font(color="FFFFFF")
+            else:
+                table[cell_index].fill = PatternFill(start_color="BBFFBB", fill_type="solid")
+                table[cell_index].font = Font(color="FFFFFF")
 
+        if julei.allocated is not None:
+            column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + julei.allocated)
+            cell_index = column_letter + str(row_index)
+            table[cell_index] = STRING_TO_MARK_ALLOCATIONS
+            table[cell_index].fill = PatternFill(start_color="00FF00", fill_type="solid")
+            table[cell_index].alignment = Alignment(horizontal='center', vertical='center')
+            table[cell_index].font = Font(color="FFFFFF")
 
-                table.add_cell( # pyright: ignore[reportUnknownMemberType]
-                    row=index_julei+1,
-                    col=index_schulung+1,
-                    width=cell_width,
-                    height=cell_height,
-                    text=str(priority_level),
-                    loc="center",
-                    facecolor=facecolor,
-                    #edgecolor='none'
-                ).set_text_props(size=FONT_SIZE)
-
-    ax.add_table(table)
-    plt.savefig(output_path, bbox_inches="tight", pad_inches=0, dpi=20) # pyright: ignore[reportUnknownMemberType]
-    plt.close('all')
+    xlsx_file.save(xlsx_file_path)
+    log_time(f"saved_to_xlsx_problem_{p.name}")
+    return xlsx_file_path
