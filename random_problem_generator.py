@@ -1,6 +1,5 @@
 from random import randint, shuffle
 
-from logger import log_time
 from data_containers import JuLei, Problem
 
 def generate_random_problem(
@@ -11,7 +10,8 @@ def generate_random_problem(
         range_of_number_of_wishes: tuple[int, int] = (1, 20),
     ) -> Problem:
     name = f"{number_of_schulungen}_Schulungen_{number_of_juleis}_JuLeis"
-    schulungen_indices = [i for i in range(number_of_schulungen)]
+
+    schulungen_indices = list(range(number_of_schulungen))
     number_of_juleis_from_bw = number_of_juleis*(juleis_from_bw_in_percent/100)
     juleis: list[JuLei] = list()
     for julei_index in range(number_of_juleis):
@@ -19,8 +19,8 @@ def generate_random_problem(
         juleis.append(JuLei(
             from_bw = julei_index < number_of_juleis_from_bw,
             wishes = schulungen_indices[:max(0, randint(*range_of_number_of_wishes))],
-            allocated = None
         ))
-    schulungen = [randint(*capacity_range) for _ in range(number_of_schulungen)]
-    log_time(f"generate_random_problem_{name}")
-    return Problem(name, juleis, schulungen)
+
+    capacities_per_schulung = [randint(*capacity_range) for _ in range(number_of_schulungen)]
+
+    return Problem(name, juleis, capacities_per_schulung)
