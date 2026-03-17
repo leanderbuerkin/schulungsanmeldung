@@ -23,6 +23,7 @@ def generate_random_problem(
         shuffle(schulungen_indices)
         juleis[julei_index] = JuLei(
             julei_index,
+            # the juleis not from bw are given first to test a worst-case scenario
             from_bw = julei_index > number_of_juleis_not_from_bw,
             wishes = schulungen_indices[:max(0, randint(*range_of_number_of_wishes))],
         )

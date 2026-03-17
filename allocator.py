@@ -44,7 +44,8 @@ def allocate(p: Problem):
         while julei is not None and len(p.remaining_wishes[julei.id]) > 0:
             best_schulung = p.schulungen[p.remaining_wishes[julei.id].pop(0)]
             julei = _update_participants(p, best_schulung, julei)
-            if len(p.schulungen)*len(p.juleis) < 1000:
+            if len(p.schulungen)*len(p.juleis) <= 1000:
                 save_to_xlsx(p, f"{time()-start_time:.2f} s")
-        print(f"{finished_juleis} of {len(p.juleis)} JuLeis assigned")
+            print(f"{finished_juleis} of {len(p.juleis)} JuLeis allocated")
+    print(f"{len(p.juleis)} of {len(p.juleis)} JuLeis allocated")
     save_to_xlsx(p, f"{time()-start_time:.2f} s")
