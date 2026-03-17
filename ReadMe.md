@@ -3,10 +3,6 @@
 This repository provides Python code to assign humans (by priorities and rules) to events.
 It is used by the JDAV BaWü to determine the JuLeis per Schulung.
 
-This repository defines a standard with tests and debugging functions
-so that everybody can easily create and verify new algorithms.
-It also contains some algorithms to solve the problem.
-
 ## Usage
 
 All commands are only tried on Linux Mint.
@@ -33,7 +29,3 @@ source .venv/bin/activate & pip install -r requirements.txt
 ```bash
 pip freeze > requirements.txt
 ```
-
-## ToDos
-
-Get all datafields of JuLeis and Schulungen from Teams

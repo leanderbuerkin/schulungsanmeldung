@@ -1,7 +1,7 @@
 """
 Not using dataframes-image because it does not allow to set edgecolors and fonts
 and is tidious to work with.
-Not using images because they take long to generate and are not readable
+Not using images because they take long to generate and are not readable.
 """
 from os import makedirs
 from typing import Any

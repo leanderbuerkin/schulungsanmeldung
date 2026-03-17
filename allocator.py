@@ -40,9 +40,11 @@ def _update_participants(p: Problem, schulung: Schulung, julei: JuLei) -> JuLei 
 
 def allocate(p: Problem):
     start_time = time()
-    for julei in p.juleis.values():
+    for finished_juleis, julei in enumerate(p.juleis.values()):
         while julei is not None and len(p.remaining_wishes[julei.id]) > 0:
             best_schulung = p.schulungen[p.remaining_wishes[julei.id].pop(0)]
             julei = _update_participants(p, best_schulung, julei)
-        save_to_xlsx(p, f"{time()-start_time:.2f} s")
-    # save_to_xlsx(p, f"result")
+            if len(p.schulungen)*len(p.juleis) < 1000:
+                save_to_xlsx(p, f"{time()-start_time:.2f} s")
+        print(f"{finished_juleis} of {len(p.juleis)} JuLeis assigned")
+    save_to_xlsx(p, f"{time()-start_time:.2f} s")
