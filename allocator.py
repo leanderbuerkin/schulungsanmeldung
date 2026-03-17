@@ -21,31 +21,29 @@ does not want to participate in any other Schulung.
 Either way, the chain can not run indefinitely.
 """
 
+from collections.abc import Generator
+
 from data_containers import JuLei, Problem, Schulung
-from file_saver import save_to_xlsx
-from time import time
 
 def _pop_least_fitting_julei(p: Problem, schulung: Schulung) -> JuLei:
-    juleis = [p.juleis[j_id] for j_id in p.participants[schulung.id]]
-    if any((not j.from_bw for j in juleis)):
-        juleis = [j for j in juleis if not j.from_bw]
-    least_fitting_julei = min(juleis, key=lambda j: schulung.scores[j.id])
-    p.participants[schulung.id].remove(least_fitting_julei.id)
+    p.participants[schulung] = sorted(p.participants[schulung], key=lambda j: p.scores[schulung][j])
+    least_fitting_julei = p.participants[schulung][0]
+    for julei in p.participants[schulung]:
+        if not p.from_bw[julei]:
+            least_fitting_julei = julei
+    p.participants[schulung].remove(least_fitting_julei)
     return least_fitting_julei
 
 def _update_participants(p: Problem, schulung: Schulung, julei: JuLei) -> JuLei | None:
-    p.participants[schulung.id].append(julei.id)
-    if len(p.participants[schulung.id]) > schulung.capacity:
+    p.participants[schulung].append(julei)
+    if len(p.participants[schulung]) > schulung.capacity:
         return _pop_least_fitting_julei(p, schulung)
 
-def allocate(p: Problem):
-    start_time = time()
-    for finished_juleis, julei in enumerate(p.juleis.values()):
-        while julei is not None and len(p.remaining_wishes[julei.id]) > 0:
-            best_schulung = p.schulungen[p.remaining_wishes[julei.id].pop(0)]
+def allocate(p: Problem) -> Generator[JuLei]:
+    for julei in p.remaining_wishes.keys():
+        if not(p.get_allocation(julei) is None):
+            continue
+        while not(julei is None) and len(p.remaining_wishes[julei]) > 0:
+            yield julei
+            best_schulung = p.remaining_wishes[julei].pop(0)
             julei = _update_participants(p, best_schulung, julei)
-            if len(p.schulungen)*len(p.juleis) <= 1000:
-                save_to_xlsx(p, f"{time()-start_time:.2f} s")
-            print(f"{finished_juleis} of {len(p.juleis)} JuLeis allocated")
-    print(f"{len(p.juleis)} of {len(p.juleis)} JuLeis allocated")
-    save_to_xlsx(p, f"{time()-start_time:.2f} s")

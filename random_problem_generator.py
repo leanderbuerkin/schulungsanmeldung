@@ -1,8 +1,7 @@
 
 from pathlib import Path
 
-from data_containers import JuLei, JuLeiId, Problem, Schulung, SchulungsId
-from file_saver import save_to_new_xlsx
+from data_containers import JuLei, Problem, Schulung
 from random import randint, shuffle
 
 def generate_random_problem(
@@ -16,36 +15,27 @@ def generate_random_problem(
     number_of_juleis_from_bw = number_of_juleis*(juleis_from_bw_in_percent/100)
     number_of_juleis_not_from_bw = number_of_juleis - number_of_juleis_from_bw
 
-
-    juleis: dict[JuLeiId, JuLei] = dict()
+    juleis: list[JuLei] = list()
     schulungen_indices = list(range(number_of_schulungen))
     for julei_index in range(number_of_juleis):
         shuffle(schulungen_indices)
-        juleis[julei_index] = JuLei(
+        juleis.append(JuLei(
             julei_index,
-            # the juleis not from bw are given first to test a worst-case scenario
+            # the juleis not from bw are added first to test a worst-case scenario
             from_bw = julei_index > number_of_juleis_not_from_bw,
-            wishes = schulungen_indices[:max(0, randint(*range_of_number_of_wishes))],
-        )
+            wishes = tuple(schulungen_indices[:max(0, randint(*range_of_number_of_wishes))]),
+        ))
 
-    schulungen: dict[SchulungsId, Schulung] = dict()
-    unique_scores = list(range(number_of_juleis))
+    schulungen: list[Schulung] = list()
     for schulungs_index in range(number_of_schulungen):
-        shuffle(unique_scores)
-        schulungen[schulungs_index] = Schulung(
+        schulungen.append(Schulung(
             schulungs_index,
             capacity = max(1, randint(*schulungen_capacity_range)),
-            scores={id: score for id, score in zip(juleis.keys(), unique_scores)}
-        )
+        ))
 
-    p = Problem(
+    return Problem(
         f"{number_of_schulungen}_Schulungen_{number_of_juleis}_JuLeis",
         output_directory,
         juleis,
-        schulungen,
-        {id: list() for id in schulungen.keys()},
-        {j.id: j.wishes for j in juleis.values()}
+        schulungen
     )
-
-    save_to_new_xlsx(p)
-    return p

@@ -7,86 +7,68 @@ from os import makedirs
 from typing import Any
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Font, Alignment
+from openpyxl.styles import PatternFill, Font
 from openpyxl.utils import get_column_letter
 
-from config import FIRST_XLSX_SHEET, WIDTH_OF_ONE_DIGIT
-from config import FIRST_CONTENT_COLUMN_INDEX, FIRST_CONTENT_ROW_INDEX, FIRST_INDEX_IN_XLSX
-from config import FROM_BW_STRING, NOT_FROM_BW_STRING, ALLOCATIONS_STRING
-from config import TOP_ROW_COLOR, JULEI_FROM_BW_COLOR, JULEI_NOT_FROM_BW_COLOR
-from config import WHITE, ALLOCATION_COLOR, WISH_FROM_ALLOCATED_JULEI_COLOR
-from config import wish_from_bw_color, wish_not_from_bw_color
-from data_containers import Problem, Schulung, JuLei
-
-def _get_content_cell_index(schulung: Schulung, julei: JuLei) -> str:
-    column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + schulung.id)
-    row_index = FIRST_CONTENT_ROW_INDEX + julei.id
-    return column_letter + str(row_index)
-
-def _draw_top_left_cell(table: Any):
-    table["A1"] = "Plätze:"
-    table["A1"].fill = PatternFill(start_color=TOP_ROW_COLOR, fill_type="solid")
-    table["A1"].font = Font(bold=True, color="FFFFFF")
+from config import FIRST_XLSX_SHEET, COLUMN_WIDTH
+from config import FIRST_INDEX_IN_XLSX, FROM_BW_STRING
+from config import FULL_SCHULUNG_COLOR, WISH_FROM_BW_COLOR, WISH_NOT_FROM_BW_COLOR
+from config import ALLOCATION_COLOR, ALLOCATED_JULEI_COLOR
+from data_containers import Problem, JuLei
 
 def _draw_first_row(p: Problem, table: Any):
-    for schulung in p.schulungen.values():
-        column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + schulung.id)
+    for julei, column_letter in p.columns_in_xlsx.items():
         cell_index = column_letter + str(FIRST_INDEX_IN_XLSX)
-        table[cell_index] = str(schulung.capacity)
-        table[cell_index].fill = PatternFill(start_color=TOP_ROW_COLOR, fill_type="solid")
-        table[cell_index].font = Font(bold=True, color="FFFFFF")
+        table[cell_index].font = Font(bold=True)
+        if p.from_bw[julei]:
+            table[cell_index] = FROM_BW_STRING
+        else:
+            table[cell_index] = " "
+        if not (p.get_allocation(julei) is None):
+            table[cell_index].fill = PatternFill(start_color=ALLOCATED_JULEI_COLOR, fill_type="solid")
 
 def _draw_first_column(p: Problem, table: Any):
-    for julei in p.juleis.values():
-        column_letter = get_column_letter(FIRST_INDEX_IN_XLSX)
-        row_index = FIRST_CONTENT_ROW_INDEX + julei.id
-        cell_index = column_letter + str(row_index)
-        if julei.from_bw:
-            table[cell_index] = FROM_BW_STRING
-            table[cell_index].fill = PatternFill(start_color=JULEI_FROM_BW_COLOR, fill_type="solid")
-        else:
-            table[cell_index] = NOT_FROM_BW_STRING
-            table[cell_index].fill = PatternFill(start_color=JULEI_NOT_FROM_BW_COLOR, fill_type="solid")
-        table[cell_index].font = Font(bold=True, color="FFFFFF")
+    for schulung, row_index in p.rows_in_xlsx.items():
+        cell_index = get_column_letter(FIRST_INDEX_IN_XLSX) + row_index
+        table[cell_index].font = Font(bold=True)
+        table[cell_index] = p.capacity[schulung]
+        if p.is_full(schulung):
+            table[cell_index].fill = PatternFill(start_color=FULL_SCHULUNG_COLOR, fill_type="solid")
 
-def _draw_allocations(p: Problem, table: Any):
-    for schulungs_index, participants_ids in p.participants.items():
-        for julei_index in participants_ids:
-            i = _get_content_cell_index(p.schulungen[schulungs_index], p.juleis[julei_index])
-            table[i] = ALLOCATIONS_STRING
-            table[i].alignment = Alignment(horizontal='center', vertical='center')
-            table[i].fill = PatternFill(start_color=ALLOCATION_COLOR, fill_type="solid")
+def _draw_participants(p: Problem, table: Any):
+    for schulung, juleis in p.participants.items():
+        for julei in juleis:
+            cell_index = p.columns_in_xlsx[julei] + p.rows_in_xlsx[schulung]
+            table[cell_index].fill = PatternFill(start_color=ALLOCATION_COLOR, fill_type="solid")
 
-def _draw_wishes(p: Problem, table: Any) -> Any:
-    for julei in p.juleis.values():
-        for priority, schulung_index in enumerate(julei.wishes):
-            i = _get_content_cell_index(p.schulungen[schulung_index], julei)
-            table[i] = priority
-            table[i].alignment = Alignment(horizontal='center', vertical='center')
-            if p.is_allocated(julei):
-                table[i].fill = PatternFill(start_color=WISH_FROM_ALLOCATED_JULEI_COLOR, fill_type="solid")
-            elif julei.from_bw:
-                table[i].fill = PatternFill(start_color=wish_from_bw_color(priority), fill_type="solid")
-                table[i].font = Font(color=WHITE)
+def _draw_column(p: Problem, table: Any, julei: JuLei):
+    for priority, schulung in enumerate(p.remaining_wishes[julei]):
+        cell_index = p.columns_in_xlsx[julei] + p.rows_in_xlsx[schulung]
+        table[cell_index] = priority
+        if priority == 0:
+            if p.from_bw[julei]:
+                table[cell_index].fill = PatternFill(start_color=WISH_FROM_BW_COLOR, fill_type="solid")
             else:
-                table[i].fill = PatternFill(start_color=wish_not_from_bw_color(priority), fill_type="solid")
-                table[i].font = Font(color=WHITE)
+                table[cell_index].fill = PatternFill(start_color=WISH_NOT_FROM_BW_COLOR, fill_type="solid")
 
-def save_to_xlsx(p: Problem, title: str):
-    print(title)
+def save_to_xlsx(p: Problem, title: str, juleis: list[JuLei] | None=None):
     xlsx_file_path = p.output_directory/f"{p.name}.xlsx"
     xlsx_file = load_workbook(xlsx_file_path)
     table = xlsx_file.create_sheet(title)
 
-    for schulung_index in range(len(p.schulungen)):
-        column_letter = get_column_letter(FIRST_CONTENT_COLUMN_INDEX + schulung_index)
-        table.column_dimensions[column_letter].width = 2*WIDTH_OF_ONE_DIGIT
+    for column_letter in p.columns_in_xlsx.values():
+        table.column_dimensions[column_letter].width = COLUMN_WIDTH
 
-    _draw_top_left_cell(table)
     _draw_first_row(p, table)
     _draw_first_column(p, table)
-    _draw_wishes(p, table)
-    _draw_allocations(p, table)
+    _draw_participants(p, table)
+
+    if not(juleis is None):
+        for julei in juleis:
+            _draw_column(p, table, julei)
+    else:
+        for julei in p.remaining_wishes.keys():
+            _draw_column(p, table, julei)
 
     xlsx_file.save(xlsx_file_path)
 
