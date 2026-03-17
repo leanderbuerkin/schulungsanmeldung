@@ -4,8 +4,6 @@ from pathlib import Path
 DATA_DIRECTORY = Path("data")
 makedirs(DATA_DIRECTORY, exist_ok=True)
 
-FIRST_XLSX_SHEET = "original problem"
-
 FROM_BW_STRING = "Baden-Württemberger*in"
 
 FIRST_INDEX_IN_XLSX = 1

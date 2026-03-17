@@ -3,15 +3,12 @@ Not using dataframes-image because it does not allow to set edgecolors and fonts
 and is tidious to work with.
 Not using images because they take long to generate and are not readable.
 """
-from os import makedirs
 from typing import Any
 
-from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill, Font
 from openpyxl.utils import get_column_letter
 
-from config import FIRST_XLSX_SHEET, COLUMN_WIDTH
-from config import FIRST_INDEX_IN_XLSX, FROM_BW_STRING
+from config import FIRST_INDEX_IN_XLSX, COLUMN_WIDTH, FROM_BW_STRING
 from config import FULL_SCHULUNG_COLOR, WISH_FROM_BW_COLOR, WISH_NOT_FROM_BW_COLOR
 from config import ALLOCATION_COLOR, ALLOCATED_JULEI_COLOR
 from data_containers import Problem, JuLei
@@ -52,9 +49,7 @@ def _draw_column(p: Problem, table: Any, julei: JuLei):
                 table[cell_index].fill = PatternFill(start_color=WISH_NOT_FROM_BW_COLOR, fill_type="solid")
 
 def save_to_xlsx(p: Problem, title: str, juleis: list[JuLei] | None=None):
-    xlsx_file_path = p.output_directory/f"{p.name}.xlsx"
-    xlsx_file = load_workbook(xlsx_file_path)
-    table = xlsx_file.create_sheet(title)
+    table = p.xlsx_file.create_sheet(title)
 
     for column_letter in p.columns_in_xlsx.values():
         table.column_dimensions[column_letter].width = COLUMN_WIDTH
@@ -69,19 +64,3 @@ def save_to_xlsx(p: Problem, title: str, juleis: list[JuLei] | None=None):
     else:
         for julei in p.remaining_wishes.keys():
             _draw_column(p, table, julei)
-
-    xlsx_file.save(xlsx_file_path)
-
-def save_to_new_xlsx(p: Problem):
-    makedirs(p.output_directory, exist_ok=True)
-    xlsx_file_path = p.output_directory/f"{p.name}.xlsx"
-    Workbook().save(xlsx_file_path)
-
-    save_to_xlsx(p, FIRST_XLSX_SHEET)
-
-    # delete the default sheet
-    xlsx_file = load_workbook(xlsx_file_path)
-    for sheetname in xlsx_file.sheetnames:
-        if sheetname != FIRST_XLSX_SHEET:
-            del xlsx_file[sheetname]
-    xlsx_file.save(xlsx_file_path)

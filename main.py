@@ -2,7 +2,7 @@ from time import gmtime, strftime, time
 
 from config import DATA_DIRECTORY
 from data_containers import Problem
-from file_saver import save_to_new_xlsx, save_to_xlsx
+from file_saver import save_to_xlsx
 from random_problem_generator import generate_random_problem
 from allocator import allocate
 
@@ -25,7 +25,6 @@ def print_stats(p: Problem, start_time: float, work_worst_case: int, work_expect
 problem = generate_random_problem(DATA_DIRECTORY, 50, 200, (8, 12), 80, (1, 5))
 work_worst_case = problem.worst_case_final_number_of_checked_allocations
 work_expected = problem.expected_final_number_of_checked_allocations
-save_to_new_xlsx(problem)
 start_time = time()
 
 time_before_allocation = time()
@@ -46,3 +45,6 @@ for julei in allocate(problem):
 
 total_processing_time = time()-start_time
 save_to_xlsx(problem, f"{total_processing_time:.2f} s")
+print("Saving result...")
+problem.save_to_file()
+print("Finished")

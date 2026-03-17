@@ -3,6 +3,7 @@ from os import makedirs
 from pathlib import Path
 from random import shuffle
 
+from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 from config import FIRST_CONTENT_COLUMN_INDEX, FIRST_CONTENT_ROW_INDEX
@@ -24,6 +25,7 @@ class Schulung:
 class Problem:
     name: str
     output_directory: Path
+    xlsx_file: Workbook
     from_bw: dict[JuLei, bool]
     remaining_wishes: dict[JuLei, list[Schulung]]
     capacity: dict[Schulung, int]
@@ -79,6 +81,8 @@ class Problem:
         self.name = name
         self.output_directory = output_directory
         makedirs(self.output_directory, exist_ok=True)
+        self.xlsx_file = Workbook()
+
 
         juleis = sorted(juleis, key=lambda j: (not j.from_bw, len(j.wishes)))
         demand = Problem._get_demand(juleis, schulungen)
@@ -113,3 +117,7 @@ class Problem:
 
     def is_full(self, schulung: Schulung) -> bool:
         return len(self.participants[schulung]) >= self.capacity[schulung]
+
+    def save_to_file(self):
+        xlsx_file_path = self.output_directory/f"{self.name}.xlsx"
+        self.xlsx_file.save(xlsx_file_path)
