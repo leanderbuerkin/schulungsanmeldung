@@ -1,3 +1,19 @@
+from openpyxl import load_workbook
+
+from config import DATA_DIRECTORY
+from random_generator import generate_random_allocator
+from file_reader import get_allocator_from_xlsx
+from file_saver import save_to_xlsx
+
+allocator = generate_random_allocator(5, 30, (2,2), 80, (1, 5))
+xlsx_file_path = DATA_DIRECTORY/f"{allocator.name}.xlsx"
+xlsx_file = save_to_xlsx(allocator, xlsx_file_path)
+
+
+xlsx_file = load_workbook(xlsx_file_path)
+allocator = get_allocator_from_xlsx(xlsx_file)
+
+"""
 from time import gmtime, strftime, time
 
 from config import DATA_DIRECTORY
@@ -48,3 +64,4 @@ save_to_xlsx(problem, f"{total_processing_time:.2f} s")
 print("Saving result...")
 problem.save_to_file()
 print("Finished")
+"""
