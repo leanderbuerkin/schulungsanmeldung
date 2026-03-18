@@ -94,13 +94,13 @@ class Allocator:
         if len(self.participants[schulung]) > schulung.capacity:
             return self._pop_least_fitting_julei(schulung)
 
-    def set_participants(self) -> Generator[tuple[JuLei, int]]:
+    def set_participants(self) -> Generator[tuple[Schulung, list[JuLei], JuLei | None]]:
         self.participants = {s: list() for s in self.schulungen}
         unchecked_wishes = self._get_wishes_of_juleis()
         for julei in unchecked_wishes.keys():
             if not(self.get_allocation(julei) is None):
                 continue
             while not(julei is None) and len(unchecked_wishes[julei]) > 0:
-                yield julei, len(unchecked_wishes[julei])
                 best_schulung = unchecked_wishes[julei].pop(0)
                 julei = self._update_participants(best_schulung, julei)
+                yield best_schulung, self.participants[best_schulung], julei

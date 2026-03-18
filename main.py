@@ -5,7 +5,11 @@ from random_generator import generate_random_allocator
 from file_reader import get_allocator_from_xlsx
 from file_saver import save_to_xlsx
 
-allocator = generate_random_allocator(5, 30, (2,2), 80, (1, 5))
+# TODO: Clean up (especially file_saver: Only functions that generate a sheet should be extra or sth.)
+# TODO: Add logging
+# TODO: Verify that reading and writing does not change the outcome
+
+allocator = generate_random_allocator(5, 50, (8, 12), 80, (5, 5))
 xlsx_file_path = DATA_DIRECTORY/f"{allocator.name}.xlsx"
 xlsx_file = save_to_xlsx(allocator, xlsx_file_path)
 

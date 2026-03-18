@@ -1,4 +1,3 @@
-
 from collections.abc import Iterable
 from dataclasses import asdict
 import json
@@ -12,11 +11,11 @@ from openpyxl.utils import get_column_letter
 
 from allocator import Allocator, JuLei, Schulung
 
-from config import COLUMN_WIDTH, DENIED_WISH_COLOR, HIGHLIGHT_COLOR, SHEET_WITH_JULEI_DATA, SHEET_WITH_SCHULUNGS_DATA, SHEET_WITH_SCORE_DATA
+from config import COLUMN_WIDTH, HIGHLIGHT_COLOR, SHEET_WITH_JULEI_DATA, SHEET_WITH_SCHULUNGS_DATA, SHEET_WITH_SCORE_DATA
 from config import FIRST_INDEX_IN_XLSX, FROM_BW_STRING, INITIAL_SHEET
 from config import get_cell_index, get_column_index, get_row_index
 
-from config import ALLOCATED_JULEI_COLOR, ALLOCATION_COLOR, FULL_SCHULUNG_COLOR
+from config import ALLOCATION_COLOR, DENIED_WISH_COLOR
 from config import JULEI_FROM_BW_COLOR, JULEI_NOT_FROM_BW_COLOR, SCHULUNG_HEADER_COLOR, WHITE
 from config import wish_from_bw_color, wish_not_from_bw_color
 
@@ -101,63 +100,35 @@ class _Insights:
             _Insights.draw_initial_column(a, sheet, julei)
 
     @staticmethod
-    def draw_allocated_julei(a: Allocator, sheet: Any, allocated_julei: JuLei):
-        for schulung in a.schulungen:
-            cell_index = get_cell_index(schulung, allocated_julei, a.schulungen, a.juleis, True)
-            sheet[cell_index].fill = PatternFill(start_color=ALLOCATED_JULEI_COLOR, fill_type="solid")
-
-    @staticmethod
-    def draw_full_schulung(a: Allocator, sheet: Any, schulung: Schulung):
-        for julei in a.juleis:
-            cell_index = get_cell_index(schulung, julei, a.schulungen, a.juleis, True)
-            sheet[cell_index].fill = PatternFill(start_color=FULL_SCHULUNG_COLOR, fill_type="solid")
-
-    @staticmethod
-    def mark_as_denied(a: Allocator, sheet: Any, julei: JuLei, denied_wishes: Iterable[Schulung]):
-        for schulung in denied_wishes:
-            cell_index = get_cell_index(schulung, julei, a.schulungen, a.juleis, True)
-            sheet[cell_index].fill = PatternFill(start_color=DENIED_WISH_COLOR, fill_type="solid")
-
-    @staticmethod
-    def highlight(a: Allocator, sheet: Any, julei: JuLei, schulung: Schulung):
-        cell_index = get_cell_index(schulung, julei, a.schulungen, a.juleis, True)
-        sheet[cell_index].fill = PatternFill(start_color=HIGHLIGHT_COLOR, fill_type="solid")
-
-
-    @staticmethod
     def draw_current_state(a: Allocator, sheet: Any):
-
-        # for schulung, juleis in a.participants.items():
-        #     if a.is_full(schulung):
-        #         _Insights.draw_full_schulung(a, sheet, schulung)
-
         for schulung, juleis in a.participants.items():
-            # for julei in juleis:
-            #     _Insights.draw_allocated_julei(a, sheet, julei)
             for julei in juleis:
                 cell_index = get_cell_index(schulung, julei, a.schulungen, a.juleis, True)
                 sheet[cell_index].fill = PatternFill(start_color=ALLOCATION_COLOR, fill_type="solid")
 
     @staticmethod
-    def draw_process_step(a: Allocator, sheet: Any,
-                         julei: JuLei, number_of_remaining_wishes: int):
-        if number_of_remaining_wishes == 0:
-            denied_wishes = [a.schulungen_by_id[s_id] for s_id in julei.wishes]
-            _Insights.mark_as_denied(a, sheet, julei, denied_wishes)
-        else:
-            denied_wishes = [a.schulungen_by_id[s_id] for s_id in julei.wishes[:-number_of_remaining_wishes]]
-            _Insights.mark_as_denied(a, sheet, julei, denied_wishes)
-            next_wish = a.schulungen_by_id[julei.wishes[-number_of_remaining_wishes]]
-            _Insights.highlight(a, sheet, julei, next_wish)
+    def highlight_overfull_schulung(a: Allocator, sheet: Any, updated_schulung: Schulung, interested_juleis: Iterable[JuLei]):
+        for interested_julei in interested_juleis:
+            cell_index = get_cell_index(updated_schulung, interested_julei, a.schulungen, a.juleis, True)
+            sheet[cell_index].fill = PatternFill(start_color=HIGHLIGHT_COLOR, fill_type="solid")
 
     @staticmethod
     def log_process_steps(a: Allocator, xlsx_file: Workbook):
         sheet = xlsx_file[INITIAL_SHEET]
-        for process_step in a.set_participants():
+        start_time = time()
+        for updated_schulung, accepted_juleis, rejected_julei in a.set_participants():
+            if not(rejected_julei is None):
+                sheet = xlsx_file.copy_worksheet(sheet)
+                sheet.title = f"{time() - start_time:.6f}"
+                _Insights.draw_current_state(a, sheet)
+                _Insights.highlight_overfull_schulung(a, sheet, updated_schulung, accepted_juleis + [rejected_julei])
+
             sheet = xlsx_file.copy_worksheet(sheet)
-            sheet.title = str(time())
+            sheet.title = f"{time() - start_time:.6f}"
             _Insights.draw_current_state(a, sheet)
-            _Insights.draw_process_step(a, sheet, *process_step)
+            if not(rejected_julei is None):
+                cell_index = get_cell_index(updated_schulung, rejected_julei, a.schulungen, a.juleis, True)
+                sheet[cell_index].fill = PatternFill(start_color=DENIED_WISH_COLOR, fill_type="solid")
 
 def save_to_xlsx(a: Allocator, xlsx_file_path: Path, verbose: bool=True):
     xlsx_file = _create_xlsx(a.name)
