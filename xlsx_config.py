@@ -1,22 +1,60 @@
-from collections.abc import Generator, Iterable
-from time import time
+from collections.abc import Iterable
 from openpyxl import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import get_column_letter
 
-from data import JuLei, Schulung
+from input_data import Schulung, JuLei
 
-FROM_BW_STRING = "Baden-Württemberger*in"
-NOT_FROM_BW_STRING = " "
+class XLSX:
+    FIRST_INDEX = 1
+    JULEI_SHEET_NAME = "data--juleis"
+    SCHULUNGEN_SHEET_NAME = "data--schulungen"
+    SCORES_SHEET_NAME = "data--scores"
 
-FIRST_INDEX_IN_XLSX = 1
-COLUMN_WIDTH = 2.5  # guess
-NUMBER_OF_HEADER_COLUMNS = 1
-NUMBER_OF_HEADER_ROWS = 1
+    FROM_BW_STRING = "Baden-Württemberger*in"
+    NOT_FROM_BW_STRING = " "
 
-JULEI_SHEET_NAME = "data--juleis"
-SCHULUNGEN_SHEET_NAME = "data--schulungen"
-SCORES_SHEET_NAME = "data--scores"
+    @staticmethod
+    def get_new_workbook(first_sheet_title: str) -> Workbook:
+        xlsx = Workbook()
+
+        if len(xlsx.worksheets) > 0: # should always be True after creation
+            first_sheet = xlsx.worksheets[0]
+        else:
+            first_sheet = xlsx.create_sheet()
+        first_sheet.title = first_sheet_title
+        first_sheet.append(["Feel free to write or delete something here!"])
+        first_sheet.append(["This sheet is not read, overwritten or needed by the computer."])
+        first_sheet.append(["Switch sheets by pressing STRG + (SHIFT) + TAB."])
+
+        return xlsx
+
+    @staticmethod
+    def as_rows(
+            schulungen: Iterable[Schulung],
+            number_of_header_rows: int=1
+        ) -> dict[Schulung, str]:
+        """Only allows Schulungen to prevent confuse rows and columns."""
+
+        rows: dict[Schulung, str] = dict()
+        offset = XLSX.FIRST_INDEX + number_of_header_rows
+        for i, schulung in enumerate(schulungen, offset):
+            rows[schulung] = str(i)
+
+        return rows
+
+    @staticmethod
+    def as_columns(
+            juleis: Iterable[JuLei],
+            number_of_header_columns: int=1
+        ) -> dict[JuLei, str]:
+        """Only allows JuLeis to prevent confuse rows and columns."""
+
+        columns: dict[JuLei, str] = dict()
+        offset = XLSX.FIRST_INDEX + number_of_header_columns
+        for i, julei in enumerate(juleis, offset):
+            columns[julei] = get_column_letter(i)
+
+        return columns
 
 class Colors:
     WHITE = "FFFFFF"
@@ -45,37 +83,3 @@ class Colors:
         for channel in base:
             rgb.append(max(0, min(255, channel+brightness)))
         return f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
-
-def get_new_workbook(first_sheet_title: str) -> Workbook:
-        xlsx = Workbook()
-        if len(xlsx.worksheets) == 0:  # should always be False after creation
-            first_sheet = xlsx.create_sheet(first_sheet_title)
-        else:
-            first_sheet = xlsx.worksheets[0]
-            first_sheet.title = first_sheet_title
-        first_sheet.append(["Feel free to write or delete something here!"])
-        first_sheet.append(["This sheet is not read, overwritten or needed by the computer."])
-        first_sheet.append(["Switch sheets by pressing STRG + TAB."])
-        return xlsx
-
-def index_as_rows(schulungen: Iterable[Schulung]) -> dict[Schulung, str]:
-    rows: dict[Schulung, str] = dict()
-    offset = FIRST_INDEX_IN_XLSX + NUMBER_OF_HEADER_ROWS
-    for i, schulung in enumerate(schulungen, offset):
-        rows[schulung] = str(i)
-    return rows
-
-def index_as_columns(juleis: Iterable[JuLei]) -> dict[JuLei, str]:
-    columns: dict[JuLei, str] = dict()
-    offset = FIRST_INDEX_IN_XLSX + NUMBER_OF_HEADER_COLUMNS
-    for i, julei in enumerate(juleis, offset):
-        columns[julei] = get_column_letter(i)
-    return columns
-
-def get_sheet_generator(xlsx: Workbook) -> Generator[Worksheet]:
-    start_time = time()
-    sheet: Worksheet = xlsx.create_sheet(f"{time() - start_time:.6f}")
-    while True:
-        yield sheet
-        sheet = xlsx.copy_worksheet(sheet)
-        sheet.title = f"{time() - start_time:.6f}"
