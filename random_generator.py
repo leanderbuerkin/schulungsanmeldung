@@ -1,8 +1,8 @@
 from random import randint, shuffle
 
-from allocator import Allocator, JuLei, Schulung
+from data import Data, JuLei, Schulung
 
-def generate_random_allocator(
+def get_random_data(
         number_of_schulungen: int,
         number_of_juleis: int,
         schulungen_capacity_range: tuple[int, int] = (6, 14),
@@ -11,6 +11,8 @@ def generate_random_allocator(
     ):
     number_of_juleis_from_bw = number_of_juleis*(juleis_from_bw_in_percent/100)
     number_of_juleis_not_from_bw = number_of_juleis - number_of_juleis_from_bw
+    
+    name = f"{number_of_schulungen}_Schulungen_{number_of_juleis}_JuLeis"
 
     juleis: set[JuLei] = set()
     schulungen_indices = list(range(number_of_schulungen))
@@ -29,7 +31,4 @@ def generate_random_allocator(
             capacity = max(1, randint(*schulungen_capacity_range)),
         ))
 
-    return Allocator(
-        f"{number_of_schulungen}_Schulungen_{number_of_juleis}_JuLeis",
-        juleis, schulungen
-    )
+    return Data(name, juleis, schulungen)
