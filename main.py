@@ -1,29 +1,22 @@
+"""
+Preference Categories:
+Flatten, assign and count rejections[schulung] = ...
+Second run: out of the same categorie choose the Schulung with the least rejections
+Repeat till nothing changes anymore.
+"""
+
+# todo: Add tests (is really everything unchanged after writing and reading xlsx)
+
 from pathlib import Path
 
-from _0_input_data import StatsForRandomData, get_random_input_data
-from _1_complete_data import RandomGenerator, XLSXReader, XLSXWriter
-from _2_participants_list import ParticipantsLists, XLSXDrawer
+from generators import complete_data, generate_participants_list, generate_random_input_data
+
+
 
 DATA_DIRECTORY = Path("data")
 
-# Allocating 500 JuLeis to 50 Schulungen with 10 slots takes 119 steps
-# Allocating 400 JuLeis to 50 Schulungen with 10 slots takes 147 steps
+input_data = generate_random_input_data(50, 500, 80, 8, 12, 50, 50)
 
-def test_for_errors_by_converting_from_and_to_xlsx():
-    stats_00 = StatsForRandomData(5, 50, (1, 1), (50, 50), 100)
+data = complete_data(input_data)
 
-    input_data = get_random_input_data(stats_00)
-    complete_data = RandomGenerator.get_complete_data_from_input_data(input_data)
-    
-    # XLSXWriter.save_as_xlsx(complete_data, DATA_DIRECTORY/"minimal")
-    # complete_data_written_and_read = XLSXReader.read_from_xlsx(DATA_DIRECTORY/"minimal"/"50_Schulungen_500_JuLeis.xlsx")
-
-    XLSXDrawer.save_as_xlsx(complete_data, DATA_DIRECTORY/"detailed")
-    # complete_data_drawn_and_read = XLSXReader.read_from_xlsx(DATA_DIRECTORY/"detailed"/"50_Schulungen_500_JuLeis.xlsx")
-
-    # assert complete_data == complete_data_written_and_read, "Data is compromised after writing"
-    # assert complete_data == complete_data_drawn_and_read, "Data is compromised after drawing"
-    # assert ParticipantsLists(complete_data) == ParticipantsLists(complete_data_written_and_read), "Data is compromised after writing"
-    # assert ParticipantsLists(complete_data) == ParticipantsLists(complete_data_drawn_and_read), "Data is compromised after drawing"
-
-test_for_errors_by_converting_from_and_to_xlsx()
+generate_participants_list(data, DATA_DIRECTORY)
