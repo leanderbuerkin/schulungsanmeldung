@@ -6,7 +6,7 @@ Add this stage, the participants list is already definied,
 but is still some work to get it.
 """
 from collections import defaultdict
-from collections.abc import Generator, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass, fields
 import json
 from os import makedirs
@@ -18,7 +18,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
 from xlsx_config import XLSX
-from input_data import InputData, Schulung, JuLei, UniqueSchulungsId, UniqueJuLeiId
+from _0_input_data import InputData, Schulung, JuLei, UniqueSchulungsId, UniqueJuLeiId
 
 @dataclass(frozen=True)
 class CompleteData:
@@ -31,19 +31,17 @@ class CompleteData:
     juleis_by_id: dict[UniqueJuLeiId, JuLei]
     scores: dict[Schulung, dict[JuLei, int]]
 
-    @property  # Generator to reflect the one time read.
-    def schulungen(self) -> Generator[Schulung]:
-        return (schulung for schulung in self.schulungen_by_id.values())
-    @property  # Generator to reflect the one time read.
-    def juleis(self) -> Generator[JuLei]:
-        return (julei for julei in self.juleis_by_id.values())
+    @property
+    def schulungen(self) -> list[Schulung]:
+        schulungen = list(self.schulungen_by_id.values())
+        schulungen.sort(key=lambda s: (s.id, s.capacity))  # optional
+        return schulungen
 
     @property
-    def total_capacity(self) -> int:  # for time estimates
-        return sum((s.capacity for s in self.schulungen))
-    @property
-    def juleis_per_slot(self) -> float:  # for time estimates
-        return len(self.juleis_by_id)/self.total_capacity
+    def juleis(self) -> list[JuLei]:
+        juleis = list(self.juleis_by_id.values())
+        juleis.sort(key=lambda j: (not j.from_bw, max(j.wishes)))  # optional
+        return juleis
 
     def get_wishes_of_juleis(self) -> dict[JuLei, list[Schulung]]:
         wishes_of_juleis: dict[JuLei, list[Schulung]] = defaultdict(list)
@@ -56,7 +54,7 @@ class CompleteData:
 
 class RandomGenerator:
     @staticmethod
-    def get_complete_from_odoo(data: InputData) -> CompleteData:
+    def get_complete_data_from_input_data(data: InputData) -> CompleteData:
         name = data.name
         schulungen_by_id = {s.id: s for s in data.schulungen}
         juleis_by_id = {j.id: j for j in data.juleis}
@@ -81,9 +79,9 @@ class RandomGenerator:
 
 class XLSXReader:
     @staticmethod
-    def get_complete_from_xlsx(xlsx_path: Path) -> CompleteData:
+    def read_from_xlsx(xlsx_path: Path) -> CompleteData:
         name = xlsx_path.stem
-        xlsx = load_workbook(xlsx_path, True)
+        xlsx = load_workbook(xlsx_path)
 
         schulungen = XLSXReader._get_schulungen(xlsx)
         juleis = XLSXReader._get_juleis(xlsx)
@@ -126,10 +124,7 @@ class XLSXReader:
         return {JuLei(**d) for d in juleis_as_dicts}
 
     @staticmethod
-    def _get_as_dict(
-            cells: tuple[Any, ...],
-            field_names: Iterable[str]
-        ) -> dict[str, Any]:
+    def _get_as_dict(cells: tuple[Any, ...], field_names: Iterable[str]) -> dict[str, Any]:
 
         as_dict: dict[str, Any] = dict()
         for i, field_name in enumerate(field_names):
@@ -151,35 +146,26 @@ class XLSXReader:
 
 class XLSXWriter:
     @staticmethod
-    def get_minimal_xlsx(
-            data: CompleteData,
-            output_directory: Path | None=None
-        ) -> Workbook:
+    def save_as_xlsx(data: CompleteData, output_directory: Path):
+        xlsx = XLSXWriter.get_minimal_xlsx(data)
+        makedirs(output_directory, exist_ok=True)
+        xlsx.save(output_directory/f"{data.name}.xlsx")
+
+    @staticmethod
+    def get_minimal_xlsx(data: CompleteData) -> Workbook:
         xlsx = XLSX.get_new_workbook(data.name)
-        xlsx = XLSXWriter.add_minimal_data(xlsx, data, output_directory)
+        xlsx = XLSXWriter.add_minimal_data(xlsx, data)
         return xlsx
 
     @staticmethod
-    def add_minimal_data(
-            xlsx: Workbook,
-            data: CompleteData,
-            output_directory: Path | None=None
-        ) -> Workbook:
-
+    def add_minimal_data(xlsx: Workbook, data: CompleteData) -> Workbook:
         XLSXWriter._add_schulungen(data.schulungen, xlsx)
         XLSXWriter._add_juleis(data.juleis, xlsx)
-        XLSXWriter._add_scores(
-            data.schulungen, data.juleis, data.scores, xlsx
-        )
-
-        if output_directory:
-            makedirs(output_directory, exist_ok=True)
-            xlsx.save(output_directory/f"{data.name}.xlsx")
-
+        XLSXWriter._add_scores(data.schulungen, data.juleis, data.scores, xlsx)
         return xlsx
 
     @staticmethod
-    def _add_juleis(juleis: Iterable[JuLei], xlsx: Workbook):
+    def _add_juleis(juleis: list[JuLei], xlsx: Workbook):
         sheet = xlsx.create_sheet(XLSX.JULEI_SHEET_NAME)
         field_names = [field.name for field in fields(JuLei)]
 
@@ -191,7 +177,7 @@ class XLSXWriter:
                 sheet[column+row] = json.dumps(getattr(julei, field_name))
 
     @staticmethod
-    def _add_schulungen(schulungen: Iterable[Schulung], xlsx: Workbook):
+    def _add_schulungen(schulungen: list[Schulung], xlsx: Workbook):
         sheet = xlsx.create_sheet(XLSX.SCHULUNGEN_SHEET_NAME)
         field_names = [field.name for field in fields(Schulung)]
 
@@ -204,7 +190,7 @@ class XLSXWriter:
     
     @staticmethod
     def _add_scores(
-            schulungen: Iterable[Schulung],
+            schulungen: list[Schulung],
             juleis: Iterable[JuLei],
             scores: dict[Schulung, dict[JuLei, int]],
             xlsx: Workbook

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
-from input_data import Schulung, JuLei
+from _0_input_data import Schulung, JuLei
 
 class XLSX:
     FIRST_INDEX = 1
@@ -33,7 +33,7 @@ class XLSX:
             schulungen: Iterable[Schulung],
             number_of_header_rows: int=1
         ) -> dict[Schulung, str]:
-        """Only allows Schulungen to prevent confuse rows and columns."""
+        # Only allows Schulungen to prevent confusing rows and columns.
 
         rows: dict[Schulung, str] = dict()
         offset = XLSX.FIRST_INDEX + number_of_header_rows
@@ -47,7 +47,7 @@ class XLSX:
             juleis: Iterable[JuLei],
             number_of_header_columns: int=1
         ) -> dict[JuLei, str]:
-        """Only allows JuLeis to prevent confuse rows and columns."""
+        # Only allows JuLeis to prevent confusing rows and columns.
 
         columns: dict[JuLei, str] = dict()
         offset = XLSX.FIRST_INDEX + number_of_header_columns

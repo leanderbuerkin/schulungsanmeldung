@@ -36,7 +36,7 @@ class StatsForRandomData:
     range_of_number_of_wishes: tuple[int, int]
     juleis_from_bw_in_percent: int
 
-def get_random_odoo_data(stats: StatsForRandomData) -> InputData:
+def get_random_input_data(stats: StatsForRandomData) -> InputData:
     name = f"{stats.number_of_schulungen}_Schulungen_"
     name += f"{stats.number_of_juleis}_JuLeis"
 
@@ -54,7 +54,7 @@ def get_random_odoo_data(stats: StatsForRandomData) -> InputData:
         number_of_wishes = max(0, randint(*stats.range_of_number_of_wishes))
         juleis.add(JuLei(
             julei_index,
-            from_bw = randint(0, 100) < stats.juleis_from_bw_in_percent,
+            from_bw = randint(0, 99) < stats.juleis_from_bw_in_percent,
             # Tuple to make it hashable for the set.
             wishes = tuple(schulungen_indices[:number_of_wishes]),
         ))
