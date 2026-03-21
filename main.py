@@ -15,7 +15,7 @@ from generators import complete_data, generate_participants_list, generate_rando
 
 DATA_DIRECTORY = Path("data")
 
-input_data = generate_random_input_data(50, 500, 80, 8, 12, 50, 50)
+input_data = generate_random_input_data(20, 300, 80, 8, 12, 0, 50)
 
 data = complete_data(input_data)
 

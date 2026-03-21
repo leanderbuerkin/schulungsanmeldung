@@ -53,21 +53,30 @@ class XLSX:
             first_sheet = xlsx.worksheets[0]
         else:
             first_sheet = xlsx.create_sheet()
-    
         first_sheet.title = data.name
+
+        average_number_of_wishes = len(data.wishes)//len(data.juleis)
+        average_number_of_slots = data.number_of_slots//len(data.schulungen)
+
+
         first_sheet.append([
-            "Feel free to write or delete something here!",
-            "This sheet is not read, overwritten or needed by the computer.",
+            "Feel free to write or delete something here!"
+        ])
+        first_sheet.append([
+            "This sheet is not read, overwritten or needed by the computer."
+        ])
+        first_sheet.append([
             "Switch sheets by pressing STRG + (SHIFT) + TAB."
         ])
-
-        print(
-            f"  Allocates {len(data.juleis)} JuLeis with {data.number_of_wishes} wishes",
-            f"  to {data.number_of_slots} Slots in {len(data.schulungen)} Schulungen.",
-            f"  On average, each julei has {data.number_of_wishes // len(data.juleis)} wishes.",
-            sep="\n"
-        )
-
+        first_sheet.append([
+            f""
+        ])
+        first_sheet.append([
+            f"Allocates {len(data.juleis)} JuLeis with {len(data.wishes)} wishes (~{average_number_of_wishes} per JuLei)"
+        ])
+        first_sheet.append([
+            f"to {data.number_of_slots} Slots in {len(data.schulungen)} Schulungen (~{average_number_of_slots} per Schulung)."
+        ])
         return xlsx
 
 class Color:
@@ -79,9 +88,9 @@ class Color:
 
     HIGHLIGHT = "FA00FA"
     SUCCESS = "008000"
-    FAILURE = "800020"
+    FAILURE = "C80000"
 
-    WISH_BRIGHTNESS = (0, 50, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170)
+    WISH_BRIGHTNESS = (60, 80, 100, 120, 140, 160)
     WISH_OF_ALLOCATED_JULEI_BASE_RGB = (0, 80, 40)
     WISH_FROM_BW_BASE_RGB = (40, 0, 80)
     WISH_NOT_FROM_BW_BASE_RGB = (0, 40, 80)
@@ -197,6 +206,20 @@ class XLSXReader:
 class XLSXPlotter:
     COLUMN_WIDTH = 2.5
     @staticmethod
+    def save_to_xlsx(states: list[State], output_directory: Path):
+        xlsx = XLSX.get_new_workbook(states[-1].parameters)
+
+        print("")
+        for state_index, state in enumerate(states):
+            print(f"Plotting state {1+state_index}/{len(states)}")
+            previous_allocations = states[state_index-1].allocations
+            XLSXPlotter.add_plot_of_state(xlsx, state, previous_allocations)
+        print("")
+
+        makedirs(output_directory, exist_ok=True)
+        xlsx.save(output_directory/f"{states[-1].parameters.name}.xlsx")
+
+    @staticmethod
     def add_plot_of_state(
             xlsx: Workbook,
             state: State,
@@ -257,6 +280,7 @@ class XLSXPlotter:
                     priority = state.parameters.wishes[julei].index(schulung)
                     sheet[column+row] = priority + 1
 
+                color = Color.wish(priority, False, julei.from_bw)
                 if (julei in state.allocations[schulung] and
                     schulung in state.overcrowded_schulungen):
                     color = Color.HIGHLIGHT
@@ -267,7 +291,7 @@ class XLSXPlotter:
                 elif state.is_allocated(julei):
                     color = Color.wish(priority, True, julei.from_bw)
                 elif state.can_not_be_allocated(julei):
-                    color = Color.wish(priority, True, julei.from_bw)
+                    color = Color.FAILURE
                 else:
                     color = Color.wish(priority, False, julei.from_bw)
 

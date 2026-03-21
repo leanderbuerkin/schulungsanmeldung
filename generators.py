@@ -1,5 +1,4 @@
 from dataclasses import replace
-from os import makedirs
 from pathlib import Path
 from random import choices, randint, shuffle
 from time import gmtime, strftime, time
@@ -7,7 +6,7 @@ from time import gmtime, strftime, time
 from data_structures import InputData, SchulungFromOdoo, JuLeiFromOdoo
 from data_structures import CompleteData, Schulung, JuLei
 from data_structures import ParticipantsList, State
-from xlsx import XLSX, XLSXPlotter
+from xlsx import XLSXPlotter
 
 def generate_random_input_data(
         number_of_schulungen: int,
@@ -72,7 +71,7 @@ def complete_data(data: InputData) -> CompleteData:
             shuffle(juleis)
             schulungen.append(Schulung(
                 **schulung,
-                ranking=tuple(juleis)
+                ranking=tuple((j.id for j in juleis))
             ))
 
         schulungen.sort(key=lambda s: s.id)
@@ -89,6 +88,7 @@ def generate_participants_list(
         save_steps_to_xlsx: Path | None,
         max_number_of_plots: int | None = 30
     ) -> ParticipantsList | None:
+    print("")
     states: list[State] = list()
 
     state = State(
@@ -101,16 +101,12 @@ def generate_participants_list(
 
     states.append(replace(state))
 
-    while True:
+    while len(state.searching_juleis) > 0:
         state.assign_juleis_ignoring_schulungs_capacity()
         states.append(replace(state, time=time()))
         state.enforce_schulungs_capacity()
         states.append(replace(state, time=time()))
-
-        if len(state.searching_juleis) > 0:
-            _generate_console_output(states)
-        else:
-            break
+        _generate_console_output(states)
 
     participants_list = ParticipantsList(
         participants = state.allocations,
@@ -118,15 +114,7 @@ def generate_participants_list(
     )
 
     if save_steps_to_xlsx:
-        states = states[:max_number_of_plots]
-        xlsx = XLSX.get_new_workbook(data)
-        print("")
-        for state_index, state in enumerate(states):
-            print(f"Plotting step {state_index + 1} of {len(states)}")
-            previous_allocations = states[state_index-1].allocations
-            XLSXPlotter.add_plot_of_state(xlsx, state, previous_allocations)
-        makedirs(save_steps_to_xlsx, exist_ok=True)
-        xlsx.save(save_steps_to_xlsx/f"{data.name}.xlsx")
+        XLSXPlotter.save_to_xlsx(states[:max_number_of_plots], save_steps_to_xlsx)
 
     _generate_final_console_output(states)
 
@@ -134,18 +122,18 @@ def generate_participants_list(
 
 def _generate_console_output(states: list[State]):
     passed_time = states[-1].time - states[0].time
-    remaining_steps = states[-1].remaining_steps_expected
+    remaining_steps_guess = max(len(ws) for ws in states[-1].unchecked_wishes.values())
     finished_steps = len(states) // 2  # 2 states per step
 
-    total_steps = finished_steps + remaining_steps
+    total_steps_guess = finished_steps + remaining_steps_guess
     time_per_step = passed_time / max(1, finished_steps)
-    remaining_time = remaining_steps * time_per_step
-    progress = finished_steps / max(1, total_steps)
+    remaining_time_guess = remaining_steps_guess * time_per_step
+    progress_guess = (100*finished_steps) // max(1, total_steps_guess)
 
     print(
-        f"{100*progress:.0f} % in "+
+        f"{progress_guess:<1} % in "+
         f"{strftime("%H:%M:%S.%f"[:-3], gmtime(passed_time))} " +
-        f" -> ETA: {strftime("%H:%M:%S", gmtime(remaining_time))}",
+        f"-> ETA: {strftime("%H:%M:%S", gmtime(remaining_time_guess))}",
         sep="\n"
     )
 
@@ -153,13 +141,20 @@ def _generate_final_console_output(states: list[State]):
     passed_time = states[-1].time - states[0].time
     steps = len(states) // 2  # 2 states per step
     data = states[-1].parameters
+    number_of_wishes = sum((len(ws) for ws in data.wishes.values()))
+    average_number_of_wishes = number_of_wishes//len(data.juleis)
+    average_number_of_slots = data.number_of_slots//len(data.schulungen)
+    number_of_allocated_juleis = len({j for j in data.juleis if states[-1].is_allocated(j)})
 
     print(
         f"",
-        f"{format(passed_time)}",
-        f"  Allocated {len(data.juleis)} JuLeis with {len(data.wishes)}",
-        f"  to {data.number_of_slots} Slots in {len(data.schulungen)} Schulungen.",
+        f"{22*"-"} Finished! {22*"-"}",
         f"",
-        f"  On average, each JuLei got {}"
+        f"Allocated {len(data.juleis)} JuLeis with {number_of_wishes} wishes (~{average_number_of_wishes} per JuLei)",
+        f"to {data.number_of_slots} Slots in {len(data.schulungen)} Schulungen (~{average_number_of_slots} per Schulung).",
+        f"This took {steps} steps and {strftime("%H:%M:%S.%f"[:-3], gmtime(passed_time))}.",
+        f"{number_of_allocated_juleis} JuLeis got a slot, " +
+        f"{len(data.juleis) - number_of_allocated_juleis} did not.",
+        f"",
         sep="\n"
     )

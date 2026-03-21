@@ -40,7 +40,7 @@ class Schulung(SchulungFromOdoo):
     If two JuLeis compete for a slot in a Schulung
     the JuLei that comes first in the ranking, gets the slot.
     """
-    ranking: tuple[JuLei, ...]
+    ranking: tuple[UniqueJuLeiId, ...]
 
 @dataclass(frozen=True, kw_only=True) # no slots to use cached_property
 class CompleteData:
@@ -112,27 +112,6 @@ class State:
                 searching_juleis.add(julei)
         return searching_juleis
 
-    @property
-    def remaining_wishes(self) -> int:
-        return sum((len(self.unchecked_wishes[j]) for j in self.parameters.juleis))
-
-    @property
-    def remaining_steps_max(self) -> int:
-        """
-        Worst case:
-        Each step only one wish gets checked and all need to get checked.
-
-        Happens if one JuLei is left after the first step.
-        She/he checks all her/his wishes and
-        kicks another JuLei out on the last wish.
-        Like this we go through all JuLeis sequentially.
-        """
-        return self.remaining_wishes
-
-    @property
-    def remaining_steps_expected(self) -> int:
-        return max(len(ws) for ws in self.unchecked_wishes.values())
-
     def is_allocated(self, julei: JuLei) -> Schulung | None:
         for schulung, juleis in self.allocations.items():
             if julei in juleis:
@@ -155,7 +134,7 @@ class State:
             # Lower properties are only considered, if the ones before are equal.
             self.allocations[schulung].sort(key=lambda julei:(
                 julei.from_bw,
-                schulung.ranking.index(julei)
+                schulung.ranking.index(julei.id)
             ))
             while schulung in self.overcrowded_schulungen:
                 self.remove_one_julei(schulung)
