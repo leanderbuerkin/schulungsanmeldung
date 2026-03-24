@@ -5,6 +5,8 @@ Second run: out of the same categorie choose the Schulung with the least rejecti
 Repeat till nothing changes anymore.
 """
 
+# todo: Images in XLSX are only of last state
+# todo: It is once again quite slow, maybe no gradient?
 # todo: Add tests (is really everything unchanged after writing and reading xlsx)
 
 from pathlib import Path
