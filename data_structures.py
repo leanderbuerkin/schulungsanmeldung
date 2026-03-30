@@ -1,150 +1,133 @@
+"""
+The data-structures are all immutable to make it easier to understand
+and prevent errors like accidentally getting a reference instead of a copy.
+"""
+
 from collections import defaultdict
 from dataclasses import dataclass
-from functools import cached_property
+from pathlib import Path
 
-from experimental_hack import Unpackable
+from hacks import FrozenDict, freeze_dict
 
-type UniqueSchulungsId = int    # just for readability
-type UniqueJuLeiId = int    # just for readability
+# Different types to find misusage trough type errors.
+type EventID = int
+type SeekerID = str
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class SchulungFromOdoo(Unpackable):
-    # Used as keys in dicts.
-    # So each instance must be unique and immutable.
-    id: UniqueSchulungsId
+class Event:
+    """Schulung"""
+    id: EventID  # to be guaranteed unique
     capacity: int
 
+
 @dataclass(frozen=True, slots=True, kw_only=True)
-class JuLeiFromOdoo(Unpackable):
-    # Used as keys in dicts.
-    # So each instance must be unique and immutable.
-    # Sets, lists and dicts are mutable, tuples are not.
-    id: UniqueJuLeiId
-    from_bw: bool
-    # Tuple to make it hashable for the set.
-    wishes: tuple[UniqueSchulungsId, ...]
+class Seeker:  # Applicant or Candidate is to long, so they are called Seeker
+    """JuLei"""
+    id: SeekerID  # to be guaranteed unique
+    from_bw: bool  # bw=Baden-Württemberg
+    wishes: tuple[tuple[Event, ...], ...]
+    @property
+    def flattened_wishes(self) -> tuple[Event, ...]:
+        flattened_wishes: list[Event] = list()
+        for wishes_with_equal_priority in self.wishes:
+            flattened_wishes += wishes_with_equal_priority
+        return tuple(flattened_wishes)
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class InputData:
     name: str
-    schulungen: set[SchulungFromOdoo]
-    juleis: set[JuLeiFromOdoo]
+    events: tuple[Event, ...]
+    seekers: tuple[Seeker, ...]
+    random_ranking: FrozenDict[Event, FrozenDict[Seeker, int]]  # tie-breaker
+    @property
+    def flattened_wishes(self) -> FrozenDict[Seeker, tuple[Event, ...]]:
+        return freeze_dict({seeker: seeker.flattened_wishes for seeker in self.seekers})
+    @property
+    def capacity_sum(self) -> int:
+        return sum(event.capacity for event in self.events)
+    @property
+    def wishes_count(self) -> int:
+        return sum(len(wishes) for wishes in self.flattened_wishes.values())
+    @property
+    def log_file_path(self) -> Path:
+        return Path(f"{self.name}.log")
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class JuLei(JuLeiFromOdoo):
-    pass
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Schulung(SchulungFromOdoo):
-    """
-    If two JuLeis compete for a slot in a Schulung
-    the JuLei that comes first in the ranking, gets the slot.
-    """
-    ranking: tuple[UniqueJuLeiId, ...]
-
-@dataclass(frozen=True, kw_only=True) # no slots to use cached_property
-class CompleteData:
-    """
-    It is called "complete data" because the participants list
-    can be generated from this and is always the same.
-
-    To always have the same result,
-    each schulung gets a random ranking of JuLeis.
-
-    To always take the same steps to the result,
-    the order of the Schulungen and JuLeis is fixed.
-
-    Additionaly some quality of life methods are added.
-    """
-    name: str
-    schulungen: tuple[Schulung, ...]
-    juleis: tuple[JuLei, ...]
-
-    @cached_property
-    def schulungen_by_id(self) -> dict[UniqueSchulungsId, Schulung]:
-        return {s.id: s for s in self.schulungen}
-    @cached_property
-    def juleis_by_id(self) -> dict[UniqueJuLeiId, JuLei]:
-        return {j.id: j for j in self.juleis}
-    @cached_property
-    def wishes(self) -> dict[JuLei, list[Schulung]]:
-        wishes_of_juleis: dict[JuLei, list[Schulung]] = defaultdict(list)
-        for julei in self.juleis:
-            for schulungs_id in julei.wishes:
-                wish_of_julei = self.schulungen_by_id[schulungs_id]
-                wishes_of_juleis[julei].append(wish_of_julei)
-        return wishes_of_juleis
-    @cached_property
-    def number_of_wishes(self) -> int:
-        return sum(len(ws) for ws in self.wishes.values())
-    @cached_property
-    def number_of_slots(self) -> int:
-        return sum(s.capacity for s in self.schulungen)
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ParticipantsList:
-    """
-    Which JuLei participates in which Schulung is stored in two ways:
-
-    - Once the participants for each Schulung
-    - Once the Schulung each JuLei participates in
-
-    This way we do not loose the information which Schulung stays empty
-    and which JuLei does not participate in any Schulung.
-    """
-    participants: dict[Schulung, list[JuLei]]
-    participations: dict[JuLei, Schulung | None]
-
-@dataclass(kw_only=True)
 class State:
-    parameters: CompleteData
+    wishes: FrozenDict[Seeker, tuple[Event, ...]]
+    @property
+    def unallocatable_seekers(self) -> tuple[Seeker, ...]:
+        return tuple(seeker for seeker, wishes in self.wishes.items() if len(wishes) == 0)
+    @property
+    def allocations(self) -> FrozenDict[Seeker, Event]:
+        return freeze_dict({seeker: wishes[0] for seeker, wishes in self.wishes.items() if len(wishes) > 0})
+    @property
+    def candidates(self) -> FrozenDict[Event, tuple[Seeker, ...]]:
+        candidates: dict[Event, list[Seeker]] = defaultdict(list)
 
-    allocations: dict[Schulung, list[JuLei]]
-    unchecked_wishes: dict[JuLei, list[Schulung]]
-    overcrowded_schulungen: set[Schulung]
-    time: float
+        for seeker, event in self.allocations.items():
+            candidates[event].append(seeker)
+
+        return freeze_dict({event: tuple(seekers) for event, seekers in candidates.items()})
+    @property
+    def overcrowded_events(self) -> FrozenDict[Event, tuple[Seeker, ...]]:
+        overcrowded_events: dict[Event, tuple[Seeker, ...]] = defaultdict(tuple)
+
+        for event, candidates in self.candidates.items():
+            if len(candidates) > event.capacity:
+                overcrowded_events[event] = candidates
+
+        return freeze_dict(overcrowded_events)
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Solution:
+    index: int
+    parameters: InputData
+    initial_state: State
+    final_state: State
+    @property
+    def name(self) -> str:
+        return f"Solution {self.index} for {self.parameters.name}"
+    @property
+    def participations(self) -> FrozenDict[Seeker, Event]:
+        return self.final_state.allocations
+    @property
+    def participants(self) -> FrozenDict[Event, tuple[Seeker, ...]]:
+        return self.final_state.candidates
+    @property
+    def unallocatable_seekers(self) -> tuple[Seeker, ...]:
+        return self.final_state.unallocatable_seekers
+    @property
+    def unsatisfied_demand(self) -> FrozenDict[Event, int]:
+        wishes_counts: dict[Event, int] = defaultdict(int)
+
+        for seeker in self.unallocatable_seekers:
+            for event in seeker.flattened_wishes:
+                wishes_counts[event] += 1
+
+        return freeze_dict(wishes_counts)
+    @property
+    def score(self) -> int:
+        return len(self.participations)
 
     @property
-    def searching_juleis(self) -> set[JuLei]:
-        searching_juleis: set[JuLei] = set()
-        for julei, wishes in self.unchecked_wishes.items():
-            if not self.is_allocated(julei) and len(wishes) > 0:
-                searching_juleis.add(julei)
-        return searching_juleis
+    def total_wishes(self) -> FrozenDict[Seeker, tuple[Event, ...]]:
+        return self.initial_state.wishes
+    @property
+    def accepted_wishes(self) -> FrozenDict[Seeker, tuple[Event]]:
+        return freeze_dict({s: (e,) for s, e in self.final_state.allocations.items()})
+    @property
+    def unchecked_wishes(self) -> FrozenDict[Seeker, tuple[Event, ...]]:
+        return freeze_dict({s: tuple(es[1:]) for s, es in self.final_state.wishes.items()})
 
-    def is_allocated(self, julei: JuLei) -> Schulung | None:
-        for schulung, juleis in self.allocations.items():
-            if julei in juleis:
-                return schulung
-        return None
-
-    def can_not_be_allocated(self, julei: JuLei) -> bool:
-        return julei not in self.searching_juleis and self.is_allocated(julei) is None
-
-    def assign_juleis_ignoring_schulungs_capacity(self):
-        unchecked_wishes = self.unchecked_wishes
-        for julei in self.searching_juleis:
-            desired_schulung = unchecked_wishes[julei].pop(0)
-            self.add_allocation(desired_schulung, julei)
-
-    def enforce_schulungs_capacity(self):
-        while len(self.overcrowded_schulungen) > 0:
-            schulung = next(iter(self.overcrowded_schulungen))
-
-            # Lower properties are only considered, if the ones before are equal.
-            self.allocations[schulung].sort(key=lambda julei:(
-                julei.from_bw,
-                schulung.ranking.index(julei.id)
-            ))
-            while schulung in self.overcrowded_schulungen:
-                self.remove_one_julei(schulung)
-
-    def add_allocation(self, schulung: Schulung, julei: JuLei):
-        self.allocations[schulung].append(julei)
-        if len(self.allocations[schulung]) > schulung.capacity:
-            self.overcrowded_schulungen.add(schulung)
-
-    def remove_one_julei(self, schulung: Schulung):
-        self.allocations[schulung].pop(0)
-        if len(self.allocations[schulung]) <= schulung.capacity:
-            self.overcrowded_schulungen.remove(schulung)
+    @property
+    def total_wishes_count(self) -> int:
+        return self.parameters.wishes_count
+    @property
+    def unchecked_wishes_count(self) -> int:
+        return sum(len(wishes) for wishes in self.unchecked_wishes.values())
+    @property
+    def capacity_sum(self) -> int:
+        return self.parameters.capacity_sum
