@@ -1,10 +1,9 @@
-from collections.abc import Iterable
 from logging import DEBUG, INFO, basicConfig, debug, info
 from pathlib import Path
 from time import gmtime, strftime, time
 
 from allocator import Allocator
-from data_structures import Event, Parameters, Solution
+from data_structures import Solution
 
 class Logger:
     allocator: Allocator
@@ -68,7 +67,7 @@ class Logger:
         return self.remaining_updates_count_guess * self.time_per_update
     @property
     def progress_guess(self) -> float:
-        return (100*self.updates_count) / max(1, self.total_updates_count_guess)
+        return self._in_percent(self.updates_count, self.total_updates_count_guess)
 
     def __init__(self, allocator: Allocator, previous_solution: Solution | None, verbose: bool = True):
         self.allocator = allocator
@@ -112,70 +111,33 @@ class Logger:
         )
         self.last_time = time()
 
+    def log_end(self, solution: Solution):
+
+        info(f"{22*"-"} Finished Allocation {self.allocator.name} in {self._as_str(self.runtime)} {22*"-"}")
+        debug(
+            f"{self.seekers_count} seekers that provide " +
+            f"{self.average_priorities_count:.1f} events as priorities " +
+            f"got allocated to {self.events_count} events " +
+            f"with a total of {self.capacity_sum} slots."
+        )
+        satisfaction = self._in_percent(solution.satisfied_seekers_count, self.seekers_count)
+        debug(
+            f"After {self.updates_count} updates, this new solution " +
+            f"satisfies {solution.satisfied_seekers_count}" +
+            f"/{self.seekers_count} seekers ({satisfaction:.1}%)."
+        )
+        if self.previous_solution:
+            previous_satisfaction = self._in_percent(self.previous_solution.satisfied_seekers_count, self.seekers_count)
+            debug(
+                f"The previously best solution satisfied " +
+                f"{self.previous_solution.satisfied_seekers_count}" +
+                f"/{self.seekers_count} seekers ({previous_satisfaction:.1}%)."
+            )
+
     @staticmethod
     def _as_str(time_in_seconds: float) -> str:
         return strftime("%H:%M:%S.%f", gmtime(time_in_seconds))
 
-
-
-
-
-
-
-
-
-
-
-
-    def log_solution_update(
-            self,
-            best_solution: Solution,
-            new_solution: Solution
-        ):
-        elapsed_time = time() - self.time_after_last_solution_update
-        total_elapsed_time = time() - self.start_time
-        self.time_after_last_solution_update = time()
-
-        info(
-            f"Found {new_solution.index} improvements in " +
-            f"{strftime("%H:%M:%S.%f"[:-3], gmtime(total_elapsed_time))}"
-        )
-
-        time_per_solution = elapsed_time / max(1, new_solution.index)
-        total_time_guess = time_per_solution*self.generated_solutions_count_max
-
-        debug(f"At most, {self.generated_solutions_count_max} times the program searches for an improvement.")
-        debug(f"Allocated {new_solution.score} seekers instead of {best_solution.score} seekers.")
-        debug(
-            f"Estimated time: {strftime("%H:%M:%S", gmtime(total_time_guess))} " +
-            f"({strftime("%H:%M:%S.%f"[:-3], gmtime(time_per_solution))} time per step)"
-        )
-
-    def log_final_solution(self, solution: Solution):
-        info(f"{22*"-"} Finished Allocation {solution.name} {22*"-"}")
-
-        total_elapsed_time = time() - self.start_time
-        seekers_count = len(solution.parameters.seekers)
-        events_count = len(solution.parameters.events)
-
-        average_wishes = solution.total_wishes_count / max(1, seekers_count)
-        unchecked_wishes = solution.unchecked_wishes_count
-        checked_wishes = solution.total_wishes_count - unchecked_wishes
-        average_checked_wishes = checked_wishes / max(1, seekers_count)
-
-        allocated_seekers_count = len(solution.participations)
-        allocated_seekers_count_percentage = (100*allocated_seekers_count) / max(1, seekers_count)
-
-        debug(
-            f"In {strftime("%H:%M:%S.%f"[:-3], gmtime(total_elapsed_time))} " +
-            f"{solution.index} solutions were created."
-        )
-        debug(
-            f"The best solution allocated {allocated_seekers_count}/{seekers_count} seekers " +
-            f"(~{allocated_seekers_count_percentage}%) to " +
-            f"{solution.capacity_sum} slots in {events_count} events."
-        )
-        debug(
-            f"{checked_wishes} of {solution.total_wishes_count} wishes got checked " +
-            f"(~{average_checked_wishes}/{average_wishes} per seeker)."
-        )
+    @staticmethod
+    def _in_percent(value: float, maximum: float) -> float:
+        return (100*value) / max(1, maximum)

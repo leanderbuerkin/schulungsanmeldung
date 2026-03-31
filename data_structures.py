@@ -97,7 +97,7 @@ class Solution:
     def name(self) -> str:
         return f"solution_{self.index}_for_{self.parameters.name}"
     @property
-    def score(self) -> int:
+    def satisfied_seekers_count(self) -> int:
         return sum(not(event is None) for event in self.participations.values())
     @property
     def unsatisfied_demand(self) -> FrozenDict[Event, int]:
