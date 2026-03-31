@@ -1,17 +1,46 @@
 from collections.abc import Iterable
-from logging import DEBUG, basicConfig, debug, info
+from logging import DEBUG, INFO, basicConfig, debug, info
+from pathlib import Path
 from time import gmtime, strftime, time
 
-from data_structures import Event, InputData, Solution, State
+from allocator import Allocator
+from data_structures import Event, Parameters, Solution
 
 class Logger:
-    generated_solutions_count_max: int
+    allocator: Allocator
+    previous_solution: Solution | None
     start_time: float
-    time_after_last_state_update: float
-    time_after_last_solution_update: float
+    last_time: float
+    updates_count: int
 
-    @staticmethod
-    def remaining_steps(wishes: Iterable[tuple[Event, ...]]) -> int:
+    @property
+    def seekers_count(self) -> int:
+        return len(self.allocator.parameters.seekers)
+    @property
+    def events_count(self) -> int:
+        return len(self.allocator.parameters.events)
+    @property
+    def capacity_sum(self) -> int:
+        return sum(event.capacity for event in self.allocator.parameters.events)
+    @property
+    def priorities_count(self) -> int:
+        prioritizations = self.allocator.parameters.get_flattened_prioritizations()
+        return sum(len(prioritization) for prioritization in prioritizations.values())
+    @property
+    def average_priorities_count(self) -> float:
+        return self.priorities_count / self.seekers_count
+    @property
+    def runtime(self) -> float:
+        return time() - self.start_time
+    @property
+    def runtime_since_last_update(self) -> float:
+        return time() - self.last_time
+    @property
+    def time_per_update(self) -> float:
+        return self.runtime / max(1, self.updates_count)
+
+    @property
+    def remaining_updates_count_guess(self) -> int:
         """
         This very simple heuristic only takes the longest number of wishes into account
         because it assumes that the two following effects cancel out:
@@ -30,57 +59,73 @@ class Logger:
     
         More steps are needed if multiple wishes of seekers must get checked.
         """
-        return max(len(ws) for ws in wishes)
+        return max(len(prioritization) for prioritization in self.allocator.prioritizations.values())
+    @property
+    def total_updates_count_guess(self) -> int:
+        return self.updates_count + self.remaining_updates_count_guess
+    @property
+    def total_runtime_guess(self) -> float:
+        return self.remaining_updates_count_guess * self.time_per_update
+    @property
+    def progress_guess(self) -> float:
+        return (100*self.updates_count) / max(1, self.total_updates_count_guess)
 
-    def __init__(self, parameters: InputData, generated_solutions_count_max: int):
-        self.generated_solutions_count_max = generated_solutions_count_max
-        self.current_process_count = 0
+    def __init__(self, allocator: Allocator, previous_solution: Solution | None, verbose: bool = True):
+        self.allocator = allocator
+        self.previous_solution = previous_solution
+        self.start_time = time()
+        self.last_time = time()
+        self.updates_count = 0
+        self.__init_logger(verbose)
+        self.log_start()
 
-        with open(parameters.log_file_path, "w") as potentially_filled_file:
+    def __init_logger(self, verbose: bool = True):
+        log_file_path = Path(f"{self.allocator.name}.log")
+        with open(log_file_path, "w") as potentially_filled_file:
             potentially_filled_file.write("")
 
         basicConfig(
-            level=DEBUG,
-            format="%(asctime)s %(msecs)03d ms %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S ",
-            filename=parameters.log_file_path
+            level=DEBUG if verbose else INFO,
+            format="%(asctime)s %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S.%f",
+            filename=log_file_path
         )
-        seekers_count = len(parameters.seekers)
-        events_count = len(parameters.events)
-        average_wishes = parameters.wishes_count/seekers_count
-
-        info(f"{22*"-"} Started Allocation {parameters.name} {22*"-"}")
+    
+    def log_start(self):
+        info(f"{22*"-"} Started Allocation {self.allocator.name} {22*"-"}")
         debug(
-            f"{seekers_count} seekers with on average {average_wishes:.1f} wishes " +
-            f"need to be allocated to {parameters.capacity_sum} slots of {events_count} events."
+            f"{self.seekers_count} seekers that provide " +
+            f"{self.average_priorities_count:.1f} events as priorities " +
+            f"need to be allocated to {self.events_count} events " +
+            f"with a total of {self.capacity_sum} slots."
         )
-        debug(f"At most {generated_solutions_count_max} trys are made to find the best solution.")
 
-        self.start_time = time()
-        self.time_after_last_state_update = time()
-        self.time_after_last_solution_update = time()
-
-    def log_state_update(self, finished_steps: int, state: State):
-        if self.time_after_last_solution_update > self.time_after_last_state_update:
-            elapsed_time = time() - self.time_after_last_solution_update
-        else:
-            elapsed_time = time() - self.time_after_last_state_update
-        total_elapsed_time = time() - self.start_time
-        self.time_after_last_state_update = time()
-
-        info(f"Finished {finished_steps} steps in {strftime("%H:%M:%S.%f"[:-3], gmtime(total_elapsed_time))}")
-
-        remaining_steps = self.remaining_steps(state.wishes.values())
-        total_steps_guess = finished_steps + remaining_steps
-        time_per_step = elapsed_time / max(1, finished_steps)
-        total_time_guess = remaining_steps * time_per_step
-        progress_guess = (100*finished_steps) / max(1, total_steps_guess)
-
-        debug(f"Estimated progress: {progress_guess:<1} ({finished_steps}/{total_steps_guess} steps).")
+    def log_update(self):
+        info(f"Finished {self.updates_count} steps in {self._as_str(self.runtime)}")
         debug(
-            f"Estimated time: {strftime("%H:%M:%S", gmtime(total_time_guess))} " +
-            f"({strftime("%H:%M:%S.%f"[:-3], gmtime(time_per_step))} time per step)"
+            f"Estimated progress: {self.progress_guess:<1} " +
+            f"({self.updates_count}/{self.total_updates_count_guess} steps)."
         )
+        debug(
+            f"Estimated time: {self._as_str(self.total_runtime_guess)} " +
+            f"{self._as_str(self.time_per_update)} time per step)"
+        )
+        self.last_time = time()
+
+    @staticmethod
+    def _as_str(time_in_seconds: float) -> str:
+        return strftime("%H:%M:%S.%f", gmtime(time_in_seconds))
+
+
+
+
+
+
+
+
+
+
+
 
     def log_solution_update(
             self,
