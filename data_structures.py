@@ -1,109 +1,107 @@
-"""
-The data-structures are all immutable to make it easier to understand
-and prevent errors like accidentally getting a reference instead of a copy.
-"""
 from collections import defaultdict
-from collections.abc import Iterable
 from dataclasses import dataclass
 
 from hacks import FrozenDict, freeze_dict
 
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Event:
-    xlsx_row: str
+    xlsx_row: str # makes each instance unique
     capacity: int
+    # Be aware when adding further attributes:
+    # Lists, dicts, tuples and other types might cause problems.
+    # E.g. JSON converts tuples to lists.
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Seeker:  # Applicants or Candidates is to long, so they are called Seekers
-    xlsx_column: str
+class Seeker:
+    xlsx_column: str # makes each instance unique
     from_baden_wuerttemberg: bool
+    # Be aware when adding further attributes:
+    # Lists, dicts, tuples and other types might cause problems.
+    # E.g. JSON converts tuples to lists.
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Stats:
+    events_count: int
+    seekers_count: int
+    seekers_from_bw_in_percent: int
+    events_capacity_range: tuple[int, int]
+    wishes_count_range: tuple[int, int]
+    wishes_ranks_count: int
+
+    @property
+    def as_string(self) -> str:
+        name = f"{self.events_count}_events__"
+        name += f"{self.seekers_count}_seekers__"
+        name += f"{self.events_capacity_range[0]}_to_"
+        name += f"{self.events_capacity_range[1]}_slots__"
+        name += f"{self.wishes_count_range[0]}_to_"
+        name += f"{self.wishes_count_range[1]}_wishes__"
+        name += f"{self.wishes_ranks_count}_ranks"
+        name.replace("-", "_minus_")
+        return name
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InputData:
+    name: str
+    events: tuple[Event, ...]
+    seekers: tuple[Seeker, ...]
+    ranked_wishes: FrozenDict[Seeker, FrozenDict[int, tuple[Event, ...]]]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Parameters:
-    name: str
-    prioritizations: FrozenDict[Seeker, tuple[tuple[Event, ...], ...]]
-    random_orders: FrozenDict[Event, tuple[Seeker, ...]]
-    solution_improvements_count_max: int
-
-    @property  # not cached because we have no runtime constraint
-    def seekers(self) -> tuple[Seeker, ...]:
-        seekers = list(self.prioritizations.keys())
-        seekers.sort(key=lambda seeker: (len(seeker.xlsx_column), seeker.xlsx_column))
-        return tuple(seekers)
-    @property  # not cached because we have no runtime constraint
+    input_data: InputData
+    index: int
+    rankings: FrozenDict[Event, FrozenDict[Seeker, int]]
+    ordered_wishes: FrozenDict[Seeker, tuple[Event, ...]]
+    @property
+    def name(self) -> str:
+        return f"{self.input_data.name}__{self.index:03d}"
+    @property
     def events(self) -> tuple[Event, ...]:
-        events = list(self.random_orders.keys())
-        events.sort(key=lambda event: (len(event.xlsx_row), event.xlsx_row))
-        return tuple(events)
-
-    def get_flattened_prioritizations(self) -> dict[Seeker, tuple[Event, ...]]:
-        return {seeker: self.get_flattened_prioritization(seeker) for seeker in self.seekers}
-
-    def get_flattened_prioritization(self, seeker: Seeker) ->  tuple[Event, ...]:
-        return sum(self.prioritizations[seeker], start=())
-
-    def get_sorted_prioritizations(self, demand: FrozenDict[Event, int]) -> dict[Seeker, tuple[Event, ...]]:
-        """
-        The best wish is at index 0.
-        -> The wishes should be checked from lowest to highest index.
-
-        In this function you can add other properties of events that you want to sort for.
-        E.g. an event that should only take place if it is really necessary.
-        The most important sort should be last.
-        The first property only decides the order of two events
-        if they share the same value for all following properties.
-        """
-        sorted: dict[Seeker, tuple[Event, ...]] = defaultdict(tuple)
-
-        for seeker, prioritization in self.prioritizations.items():
-            for events_with_same_priority in prioritization:
-                events = list(events_with_same_priority)
-                events.sort(key=lambda event: -event.capacity)  # first property (less important)
-                events.sort(key=lambda event: demand[event])  # second property (more important)
-                sorted[seeker] += tuple(events)
-
-        return sorted
-
-    def sort_candidates(self, candidates: Iterable[Seeker], event: Event) -> tuple[Seeker, ...]:
-        """
-        The best fitting candidate is at index 0.
-        -> The lower the index, the better does the candidate fit.
-
-        In this function you can add other properties of seekers that you want to sort for.
-        E.g. a gender/club quota or seekers with special needs like childcare or wheelchair-friendly.
-        The most important sort should be last.
-        The first property only decides the order of two seekers
-        if they share the same value for all following properties.
-        """
-        random_order = self.random_orders[event]
-        seekers = list(candidates)
-
-        seekers.sort(key=lambda seeker: random_order.index(seeker))  # first property (less important)
-        seekers.sort(key=lambda seeker: not seeker.from_baden_wuerttemberg)  # second property (more important)
-
-        return tuple(seekers)
+        return self.input_data.events
+    @property
+    def seekers(self) -> tuple[Seeker, ...]:
+        return self.input_data.seekers
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Solution:
-    index: int
     parameters: Parameters
-    participants: FrozenDict[Event, tuple[Seeker, ...]]
     participations: FrozenDict[Seeker, Event | None]
     @property
-    def name(self) -> str:
-        return f"solution_{self.index}_for_{self.parameters.name}"
+    def index(self) -> int:
+        return self.parameters.index
     @property
-    def satisfied_seekers_count(self) -> int:
-        return sum(not(event is None) for event in self.participations.values())
+    def name(self) -> str:
+        return f"solution_{self.index}_for_{self.parameters.input_data.name}"
+    @property
+    def events(self) -> tuple[Event, ...]:
+        return self.parameters.events
+    @property
+    def seekers(self) -> tuple[Seeker, ...]:
+        return self.parameters.seekers
+    @property
+    def participants(self) -> FrozenDict[Event, tuple[Seeker, ...]]:
+        participants: dict[Event, tuple[Seeker, ...]]
+        participants = {event: tuple() for event in self.events}
+        for seeker, event in self.participations.items():
+            if event:
+                participants[event] += tuple([seeker])
+        return freeze_dict(participants)
+    @property
+    def satisfied_seekers(self) -> tuple[Seeker, ...]:
+        return tuple(seeker for seeker, event in self.participations.items() if event)
+    @property
+    def unsatisfied_seekers(self) -> tuple[Seeker, ...]:
+        return tuple(seeker for seeker, event in self.participations.items() if event is None)
     @property
     def unsatisfied_demand(self) -> FrozenDict[Event, int]:
         demand: dict[Event, int] = defaultdict(int)
-        for seeker, participation in self.participations.items():
-            if participation is None:
-                for event in self.parameters.get_flattened_prioritization(seeker):
-                    demand[event] += 1
+        for seeker in self.unsatisfied_seekers:
+            for event in self.parameters.ordered_wishes[seeker]:
+                demand[event]
         return freeze_dict(demand)

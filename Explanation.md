@@ -18,3 +18,21 @@ each data-type is read-only/immutable/frozen:
 - MappingProxyType is a read-only dict
 """
         """The more wishes, the more complicated the problem is."""
+
+"""
+The data-structures are all immutable to make it easier to understand
+and prevent errors like accidentally getting a reference instead of a copy.
+"""
+
+The same parameters always produce the same solution
+
+
+
+    """
+    To have unambiguous parameters that always produce the same solution,
+    this function generates partially random rankings for all events
+    and converts the ranked wishes into one tuple.
+
+    One ranking is a sequence of seekers and each seeker 
+    """
+
