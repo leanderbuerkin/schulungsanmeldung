@@ -71,7 +71,7 @@ class Parameters:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Solution:
     parameters: Parameters
-    participations: FrozenDict[Seeker, Event | None]
+    participants: FrozenDict[Event, tuple[Seeker, ...]]
     @property
     def index(self) -> int:
         return self.parameters.index
@@ -85,13 +85,12 @@ class Solution:
     def seekers(self) -> tuple[Seeker, ...]:
         return self.parameters.seekers
     @property
-    def participants(self) -> FrozenDict[Event, tuple[Seeker, ...]]:
-        participants: dict[Event, tuple[Seeker, ...]]
-        participants = {event: tuple() for event in self.events}
-        for seeker, event in self.participations.items():
-            if event:
-                participants[event] += tuple([seeker])
-        return freeze_dict(participants)
+    def participations(self) -> FrozenDict[Seeker, Event | None]:
+        participations: dict[Seeker, Event | None] = {s: None for s in self.seekers}
+        for event, seekers in self.participants.items():
+            for seeker in seekers:
+                participations[seeker] = event
+        return freeze_dict(participations)
     @property
     def satisfied_seekers(self) -> tuple[Seeker, ...]:
         return tuple(seeker for seeker, event in self.participations.items() if event)

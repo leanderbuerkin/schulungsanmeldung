@@ -23,65 +23,52 @@ def get_solution(parameters: Parameters) -> Solution:
     unchecked_wishes = {
         seeker: list(events)
         for seeker, events in parameters.ordered_wishes.items()
-        if events
     }
-    
-    rankings: dict[Event, dict[Seeker, int]] = dict()
-    for event, ranking in parameters.rankings.items():
-        for seeker, rank in ranking.items():
-            if seeker not in unchecked_wishes:
-                continue
-            if event not in unchecked_wishes[seeker]:
-                continue
-            if event not in rankings.keys():
-                rankings[event] = dict()
-            rankings[event][seeker] = rank
 
+    reallocated_seekers_count = 0
+    participations: dict[Event, list[Seeker]] = {e: list() for e in parameters.events}
+    for seeker, events in unchecked_wishes.items():
+        if len(events) > 0:
+            event = unchecked_wishes[seeker].pop(0)
+            participations[event].append(seeker)
+            reallocated_seekers_count += 1
 
     info(f'{10*'-'} Started Allocation "{parameters.name}" {10*'-'}')
 
-    while True:
+    while reallocated_seekers_count > 0:
+        rejected_seekers_count = 0
         reallocated_seekers_count = 0
-        denied_seekers_count = 0
+        for event, candidates in participations.items():
+            if len(candidates) <= event.capacity:
+                continue
+            ranking = parameters.rankings[event]
+            candidates.sort(key=lambda seeker: ranking[seeker])
 
-        for event, ranking in rankings.items():
-
-            candidates = (
-                seeker for seeker in ranking.keys()
-                if unchecked_wishes[seeker][0] == event
-            )
-            candidates = sorted(candidates, key=lambda seeker: ranking[seeker])
-
-            for rejected_candidate in candidates[event.capacity:]:
-                if len(unchecked_wishes[rejected_candidate]) == 1:
-                    # Deleting all rejected seekers ensures that
-                    # unchecked_wishes.pop(0) and unchecked_wishes[0] is always possible.
-                    del unchecked_wishes[rejected_candidate]
-                    del rankings[event][rejected_candidate]
-                    denied_seekers_count += 1
-                else:
-                    unchecked_wishes[rejected_candidate].pop(0)
-                    del rankings[event][rejected_candidate]
+            participations[event] = candidates[:event.capacity]
+    
+            for rejected_seeker in candidates[event.capacity:]:
+                wishes = unchecked_wishes[rejected_seeker]
+                if len(wishes) > 0:
+                    event = wishes.pop(0)
+                    participations[event].append(rejected_seeker)
                     reallocated_seekers_count += 1
-
-        denied_wishes = denied_seekers_count + reallocated_seekers_count
+                else:
+                    rejected_seekers_count += 1
         info(
-            f"In this step, {denied_wishes} wishes got denied. " +
-            f"For {denied_seekers_count} seekers it was their last wish."
+            f"In this step, {reallocated_seekers_count} wishes got denied. "
+            f"For {rejected_seekers_count} seekers it was their last wish."
         )
-        if reallocated_seekers_count == 0:
-            break
 
     info(f'{10*'-'} Finished Allocation "{parameters.name}" {10*'-'}')
 
-    participations: dict[Seeker, Event | None] = dict()
-    for seeker in parameters.seekers:
-        if seeker in unchecked_wishes.keys():
-            participations[seeker] = unchecked_wishes[seeker][0]
+    participants: dict[Event, tuple[Seeker, ...]] = dict()
+    for event in parameters.events:
+        if event in participations:
+            participants[event] = tuple(participations[event])
         else:
-            participations[seeker] = None
+            participants[event] = tuple()
 
     return Solution(
         parameters=parameters,
-        participations=freeze_dict(participations)
+        participants=freeze_dict(participants)
     )
