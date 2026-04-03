@@ -1,7 +1,10 @@
 from enum import StrEnum
+from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
+
+OUTPUT_DIRECTORY_PATH = Path("output")
 
 
 FIRST_INDEX = 1
@@ -9,29 +12,14 @@ HEADER_INDIZES_COUNT = 1
 FIRST_CONTENT_INDEX = FIRST_INDEX + HEADER_INDIZES_COUNT
 COLUMN_WIDTH = 2.5
 
-LOG_SHEET_NAME = "log"
-
-
 class SheetNames(StrEnum):
+    STATS = "stats"
     EVENTS = "events"
     SEEKERS = "seekers"
     RANKED_WISHES = "wishes"
-    ORDERED_WISHES = "ordered-wishes-generated"
     RANKINGS = "rankings-generated"
+    ORDERED_WISHES = "ordered-wishes-generated"
     PARTICIPANTS = "participants-generated"
-
-
-class Color(StrEnum):
-    WHITE = "FFFFFF"
-
-    EVENT_HEADER = "000050"
-    SEEKERS_FROM_BW_HEADER = "400080"
-    SEEKERS_NOT_FROM_BW_HEADER = "004080"
-
-    SUCCESS = "008000"
-    FAILURE = "C80000"
-    UNCHECKED_FROM_BW = "CCAAFF"
-    UNCHECKED_NOT_FROM_BW = "AACCFF"
 
 
 def _get_indizes(amount: int) -> list[int]:
@@ -46,11 +34,5 @@ def get_column_indizes(amount: int) -> list[str]:
 
 def get_new_workbook() -> Workbook:
     xlsx = Workbook()
-
-    if len(xlsx.worksheets) > 0: # should always be True after creation
-        first_sheet = xlsx.worksheets[0]
-    else:
-        first_sheet = xlsx.create_sheet()
-    first_sheet.append(["Switch sheets by pressing STRG + (SHIFT) + TAB."])
-
+    xlsx.worksheets[0].append(["Switch sheets by pressing STRG + (SHIFT) + TAB."])
     return xlsx

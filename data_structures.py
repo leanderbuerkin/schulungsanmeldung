@@ -10,7 +10,9 @@ class Event:
     # Be aware when adding further attributes:
     # Lists, dicts, tuples and other types might cause problems.
     # E.g. JSON converts tuples to lists.
-
+    @property
+    def as_string(self) -> str:
+        return f"{self.capacity} slots"
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Seeker:
@@ -19,6 +21,11 @@ class Seeker:
     # Be aware when adding further attributes:
     # Lists, dicts, tuples and other types might cause problems.
     # E.g. JSON converts tuples to lists.
+    @property
+    def as_string(self) -> str:
+        if self.from_baden_wuerttemberg:
+            return "Aus Baden-Württemberg"
+        return " "
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -45,7 +52,7 @@ class Stats:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class InputData:
-    name: str
+    stats: Stats
     events: tuple[Event, ...]
     seekers: tuple[Seeker, ...]
     ranked_wishes: FrozenDict[Seeker, FrozenDict[int, tuple[Event, ...]]]
@@ -54,12 +61,11 @@ class InputData:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Parameters:
     input_data: InputData
-    index: int
     rankings: FrozenDict[Event, FrozenDict[Seeker, int]]
     ordered_wishes: FrozenDict[Seeker, tuple[Event, ...]]
     @property
-    def name(self) -> str:
-        return f"{self.input_data.name}__{self.index:03d}"
+    def stats(self) -> Stats:
+        return self.input_data.stats
     @property
     def events(self) -> tuple[Event, ...]:
         return self.input_data.events
@@ -73,17 +79,17 @@ class Solution:
     parameters: Parameters
     participants: FrozenDict[Event, tuple[Seeker, ...]]
     @property
-    def index(self) -> int:
-        return self.parameters.index
+    def input_data(self) -> InputData:
+        return self.parameters.input_data
     @property
-    def name(self) -> str:
-        return f"solution_{self.index}_for_{self.parameters.input_data.name}"
+    def stats(self) -> Stats:
+        return self.input_data.stats
     @property
     def events(self) -> tuple[Event, ...]:
-        return self.parameters.events
+        return self.input_data.events
     @property
     def seekers(self) -> tuple[Seeker, ...]:
-        return self.parameters.seekers
+        return self.input_data.seekers
     @property
     def participations(self) -> FrozenDict[Seeker, Event | None]:
         participations: dict[Seeker, Event | None] = {s: None for s in self.seekers}

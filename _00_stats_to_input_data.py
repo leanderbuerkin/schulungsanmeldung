@@ -62,7 +62,7 @@ def generate_random_input_data(stats: Stats) -> InputData:
     seekers.sort(key=lambda seeker: (len(seeker.xlsx_column), seeker.xlsx_column))
 
     return InputData(
-        name=stats.as_string,
+        stats=stats,
         events=tuple(events),
         seekers=tuple(seekers),
         ranked_wishes=freeze_dict(ranked_wishes)

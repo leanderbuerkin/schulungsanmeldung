@@ -1,17 +1,11 @@
 from collections import defaultdict
 from random import shuffle
 
-from data_structures import Event, InputData, Parameters, Seeker, Solution
+from data_structures import Event, InputData, Parameters, Seeker
 from hacks import FrozenDict, freeze_dict
 
 
-def choose_parameters(input_data: InputData, previous_solution: Solution | None) -> Parameters:
-    def get_index() -> int:
-        if previous_solution:
-            return previous_solution.index + 1
-        else:
-            return 0
-
+def choose_parameters(input_data: InputData) -> Parameters:
     def get_ordered_wishes():
         """
         The best wish is at index 0.
@@ -23,12 +17,14 @@ def choose_parameters(input_data: InputData, previous_solution: Solution | None)
         The first property only decides the order of two events
         if they share the same value for all following properties.
         """
-        if previous_solution:
-            demand = previous_solution.unsatisfied_demand
-        else:
-            demand: FrozenDict[Event, int] = freeze_dict(defaultdict(int))
         ordered_wishes_per_seeker: dict[Seeker, tuple[Event, ...]] = defaultdict(tuple)
-    
+
+        demand: dict[Event, int] = defaultdict(int)
+        for ranked_wishes in input_data.ranked_wishes.values():
+            for wishes in ranked_wishes.values():
+                for event in wishes:
+                    demand[event] += 1
+
         for seeker, ranked_wishes in input_data.ranked_wishes.items():
             for rank in sorted(ranked_wishes.keys()):
                 events = list(ranked_wishes[rank])
@@ -50,7 +46,7 @@ def choose_parameters(input_data: InputData, previous_solution: Solution | None)
         if they share the same value for all following properties.
         """
         rankings: dict[Event, FrozenDict[Seeker, int]] = dict()
-    
+
         for event in input_data.events:
             ranking = list(input_data.seekers)
             shuffle(ranking)
@@ -61,7 +57,6 @@ def choose_parameters(input_data: InputData, previous_solution: Solution | None)
 
     return Parameters(
         input_data=input_data,
-        index=get_index(),
         ordered_wishes=get_ordered_wishes(),
         rankings=get_partially_random_rankings()
     )
