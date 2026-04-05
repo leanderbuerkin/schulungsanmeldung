@@ -6,7 +6,7 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from data_structures import Event, InputData, Parameters, Seeker, Solution
+from data_structures import Event, InputData, Parameters, Seeker, Solution, Stats
 from xlsx import FIRST_INDEX, OUTPUT_DIRECTORY_PATH, SheetNames, get_new_workbook
 
 def save_to_xlsx(solution: Solution):
@@ -51,6 +51,7 @@ def add_parameters(xlsx: Workbook, parameters: Parameters):
     add_ordered_wishes()
 
 def add_input_data(xlsx: Workbook, input_data: InputData):
+    add_stats(xlsx, input_data.stats)
     def add_events():
         sheet = xlsx.create_sheet(SheetNames.EVENTS)
         field_names = [field.name for field in fields(Event)]
@@ -85,6 +86,15 @@ def add_input_data(xlsx: Workbook, input_data: InputData):
                     sheet[seeker.xlsx_column + event.xlsx_row] = rank
 
     add_ranked_wishes()
+
+def add_stats(xlsx: Workbook, stats: Stats):
+    sheet = xlsx.create_sheet(SheetNames.STATS)
+    field_names = [field.name for field in fields(Stats)]
+
+    for row_index, field_name in enumerate(field_names, FIRST_INDEX):
+        row = str(row_index)
+        sheet["A" + row] = field_name
+        sheet["B" + row] = getattr(stats, field_name)
 
 
 def _add_events_as_header(sheet: Worksheet, events: Iterable[Event]):

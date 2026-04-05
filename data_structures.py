@@ -33,18 +33,20 @@ class Stats:
     events_count: int
     seekers_count: int
     seekers_from_bw_in_percent: int
-    events_capacity_range: tuple[int, int]
-    wishes_count_range: tuple[int, int]
+    events_capacity_min: int
+    events_capacity_max: int
+    wishes_count_min: int
+    wishes_count_max: int
     wishes_ranks_count: int
 
     @property
     def as_string(self) -> str:
         name = f"{self.events_count}_events__"
         name += f"{self.seekers_count}_seekers__"
-        name += f"{self.events_capacity_range[0]}_to_"
-        name += f"{self.events_capacity_range[1]}_slots__"
-        name += f"{self.wishes_count_range[0]}_to_"
-        name += f"{self.wishes_count_range[1]}_wishes__"
+        name += f"{self.events_capacity_min}_to_"
+        name += f"{self.events_capacity_max}_slots__"
+        name += f"{self.wishes_count_min}_to_"
+        name += f"{self.wishes_count_max}_wishes__"
         name += f"{self.wishes_ranks_count}_ranks"
         name.replace("-", "_minus_")
         return name

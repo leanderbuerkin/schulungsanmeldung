@@ -9,14 +9,19 @@ from data_structures import Event, InputData, Parameters, Seeker, Solution, Stat
 from hacks import FrozenDict, freeze_dict
 from xlsx import SheetNames
 
-def read_xlsx(xlsx_path: Path) -> Solution | Parameters | InputData | None:
+def read_xlsx(xlsx_path: Path) -> Solution | Parameters | InputData | Stats | None:
     xlsx = load_workbook(xlsx_path)
-    if (SheetNames.EVENTS not in xlsx or
-        SheetNames.SEEKERS not in xlsx or
-        SheetNames.RANKED_WISHES in xlsx):
+    if SheetNames.STATS not in xlsx:
         return None
     
-    input_data = read_input_data_from_xlsx(xlsx)
+    stats = read_stats_from_xlsx(xlsx)
+
+    if (SheetNames.EVENTS not in xlsx or
+        SheetNames.SEEKERS not in xlsx or
+        SheetNames.RANKED_WISHES not in xlsx):
+        return stats
+    
+    input_data = read_input_data_from_xlsx(xlsx, stats)
 
     if (SheetNames.RANKINGS not in xlsx or
         SheetNames.ORDERED_WISHES not in xlsx):
@@ -33,11 +38,11 @@ def read_xlsx(xlsx_path: Path) -> Solution | Parameters | InputData | None:
 def read_solution_from_xlsx(xlsx: Workbook, parameters: Parameters) -> Solution:
     def get_participants() -> FrozenDict[Event, tuple[Seeker, ...]]:
         sheet = xlsx[SheetNames.PARTICIPANTS]
-        participants: dict[Event, tuple[Seeker, ...]] = dict()
+        participants: dict[Event, tuple[Seeker, ...]] = defaultdict(tuple)
         for event in parameters.events:
             for seeker in parameters.seekers:
                 value = sheet[seeker.xlsx_column + event.xlsx_row].value
-                if value:
+                if not value is None:
                     participants[event] += tuple([seeker])
         return freeze_dict(participants)
     
@@ -68,7 +73,8 @@ def read_parameters_from_xlsx(xlsx: Workbook, input_data: InputData) -> Paramete
             ordered_wishes_as_dict: dict[Event, int] = dict()
             for event in input_data.events:
                 index = sheet[seeker.xlsx_column + event.xlsx_row].value
-                ordered_wishes_as_dict[event] = index
+                if not index is None:
+                    ordered_wishes_as_dict[event] = index
             ordered_wishes[seeker] = tuple(sorted(
                 ordered_wishes_as_dict.keys(),
                 key=lambda event: ordered_wishes_as_dict[event]
@@ -83,7 +89,7 @@ def read_parameters_from_xlsx(xlsx: Workbook, input_data: InputData) -> Paramete
         ordered_wishes=ordered_wishes
     )
 
-def read_input_data_from_xlsx(xlsx: Workbook) -> InputData:
+def read_input_data_from_xlsx(xlsx: Workbook, stats: Stats) -> InputData:
     def read_events():
         sheet = xlsx[SheetNames.EVENTS]
         rows = sheet.iter_rows(values_only=True)
@@ -113,7 +119,7 @@ def read_input_data_from_xlsx(xlsx: Workbook) -> InputData:
             wishes: dict[int, tuple[Event, ...]] = defaultdict(tuple)
             for event in events:
                 rank = sheet[seeker.xlsx_column + event.xlsx_row].value
-                if rank is not None:
+                if not rank is None:
                     wishes[rank] += tuple([event])
             ranked_wishes[seeker] = freeze_dict(wishes)
         return freeze_dict(ranked_wishes)
@@ -121,40 +127,19 @@ def read_input_data_from_xlsx(xlsx: Workbook) -> InputData:
     ranked_wishes = read_ranked_wishes()
 
     return InputData(
-        stats=_get_stats(events, seekers, ranked_wishes),
+        stats=stats,
         events=events,
         seekers=seekers,
         ranked_wishes=ranked_wishes
     )
 
 
-def _get_stats(
-        events: tuple[Event, ...],
-        seekers: tuple[Seeker, ...],
-        ranked_wishes: FrozenDict[Seeker, FrozenDict[int, tuple[Event, ...]]]
-    ) -> Stats:
-    events_count = len(events)
-    seekers_count = len(seekers)
-    seekers_from_bw = sum(seeker.from_baden_wuerttemberg for seeker in seekers)
-    seekers_from_bw_in_percent = (100*seekers_from_bw) // max(1, seekers_count)
-    events_capacity_range = (
-        min(event.capacity for event in events),
-        max(event.capacity for event in events)
-    )
-    wishes_count_range = (
-        min(sum(len(ws) for ws in wishes.values()) for wishes in ranked_wishes.values()),
-        max(sum(len(ws) for ws in wishes.values()) for wishes in ranked_wishes.values())
-    )
-    wishes_ranks_count = max(len(wishes.keys()) for wishes in ranked_wishes.values())
-
-    return Stats(
-        events_count=events_count,
-        seekers_count=seekers_count,
-        seekers_from_bw_in_percent=seekers_from_bw_in_percent,
-        events_capacity_range=events_capacity_range,
-        wishes_count_range=wishes_count_range,
-        wishes_ranks_count=wishes_ranks_count
-    )
+def read_stats_from_xlsx(xlsx: Workbook) -> Stats:
+    sheet = xlsx[SheetNames.STATS]
+    columns = sheet.iter_cols(values_only=True)
+    field_names = [str(field_name) for field_name in next(columns)]
+    stats_as_dict = _get_as_dict(next(columns), field_names)
+    return Stats(**stats_as_dict)
 
 
 def _get_as_dict(cells: tuple[Any, ...], field_names: Iterable[str]) -> dict[str, Any]:

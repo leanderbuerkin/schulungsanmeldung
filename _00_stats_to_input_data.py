@@ -12,7 +12,10 @@ def generate_random_input_data(stats: Stats) -> InputData:
         for row_index in XLSX.get_row_indizes(stats.events_count):
             events.append(Event(
                 xlsx_row=row_index,
-                capacity=_get_positive_randint(*stats.events_capacity_range)
+                capacity=_get_positive_randint(
+                    stats.events_capacity_min,
+                    stats.events_capacity_max
+                )
             ))
 
         return events
@@ -32,7 +35,7 @@ def generate_random_input_data(stats: Stats) -> InputData:
 
     def get_ranked_wishes(possible_wishes: list[Event]
                           ) ->  FrozenDict[int, tuple[Event, ...]]:
-        wishes_count = _get_positive_randint(*stats.wishes_count_range)
+        wishes_count = _get_positive_randint(stats.wishes_count_min, stats.wishes_count_max)
         wishes = possible_wishes[:wishes_count]
 
         ranks_count = min(len(wishes), stats.wishes_ranks_count)
