@@ -4,8 +4,6 @@ import numpy as np
 from scipy.sparse import csr_array
 from scipy.sparse.csgraph import maximum_flow
 
-# todo: Find best solution out of all optimal solutions by using quotas
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Event:
     index: int # makes each instance unique
@@ -16,10 +14,10 @@ class Seeker:
     index: int # makes each instance unique
     from_baden_wuerttemberg: bool
 
-type Wishes = dict[Seeker, list[Event]]
-
-def get_solution(ranked_wishes: dict[int, Wishes]) -> dict[Event, list[Seeker]]:
-    participants: defaultdict[Event, list[Seeker]] = defaultdict(list)
+def get_solution(
+        ranked_wishes: dict[int, dict[Seeker, list[Event]]]
+    ) -> dict[Event, list[Seeker]]:
+    participants: dict[Event, list[Seeker]] = defaultdict(list)
 
     for allow_seekers_from_everywhere in [False, True]:
         for rank in sorted(ranked_wishes.keys()):
@@ -32,7 +30,7 @@ def get_solution(ranked_wishes: dict[int, Wishes]) -> dict[Event, list[Seeker]]:
             seekers = [
                 seeker
                 for seeker in wishes.keys()
-                if (allow_seekers_from_everywhere or seeker.from_baden_wuerttemberg
+                if ((allow_seekers_from_everywhere or seeker.from_baden_wuerttemberg)
                     and seeker not in allocated_seekers and len(wishes[seeker]) > 0)
             ]
             if len(seekers) == 0 or len(events) == 0:
@@ -43,11 +41,11 @@ def get_solution(ranked_wishes: dict[int, Wishes]) -> dict[Event, list[Seeker]]:
             source_index = 0
             sink_index = columns_count - 1
 
-            seeker_indizes: dict[Seeker, int] = {
+            seeker_indizes = {
                 seeker: seeker_index
                 for seeker_index, seeker in enumerate(seekers, 1)
             }
-            event_indizes: dict[Event, int] = {
+            event_indizes = {
                 event: event_index
                 for event_index, event in enumerate(events, 1 + len(seekers))
             }
@@ -61,9 +59,11 @@ def get_solution(ranked_wishes: dict[int, Wishes]) -> dict[Event, list[Seeker]]:
             # Seekers to events: Capacity 1 cause each seeker can only get one slot of an event
             for seeker in seekers:
                 for event in wishes[seeker]:
+                    if event not in events:
+                        continue  # the event is full or otherwise not choosable
                     adjacency_matrix[seeker_indizes[seeker], event_indizes[event]] = 1
             
-            # Events to sink: Capacity varies cause each event can have any number of slots
+            # Events to sink: Capacity varies depending on the free slots of the event
             for event in events:
                 remaining_capacity = event.capacity - len(participants[event])
                 if remaining_capacity > 0:
@@ -74,6 +74,8 @@ def get_solution(ranked_wishes: dict[int, Wishes]) -> dict[Event, list[Seeker]]:
 
             for seeker in seekers:
                 for event in wishes[seeker]:
+                    if event not in events:
+                        continue  # the event is full or otherwise not choosable
                     if matrix[seeker_indizes[seeker], event_indizes[event]] > 0:
                         participants[event].append(seeker)
                         break

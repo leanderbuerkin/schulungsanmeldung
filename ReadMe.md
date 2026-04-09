@@ -109,17 +109,17 @@ is used instead of
 because it the edges to the sink get the capacity of the Schulungen
 and the matrizes are easier to create and understand.
 
-After the best solution is found,
-for each event we check if kicking one JuLei and accepting one of the JuLeis that did not get any slot
-improves the quotas.
+After the best solution is found, for each event
+we could check if kicking one JuLei and accepting a rejected one improves the quotas.
 This should start with the event with the worst quota.
+(This is not yet implemented)
 
-All events can be checked multiple times,
+All events should be checked multiple times,
 since the newly kicked JuLeis might be able to improve the quotas.
-Since checking a can loop (?) this should just be done x times (depending on how long it takes).
+This can probably loop (?) so it should just be done x times (depending on how long it takes).
 
 Since always only one JuLeis is kicked while another one is added,
-the new solution is also always the optimal solution.
+the new solution is also always an optimal solution.
 
 ## Contribute
 
