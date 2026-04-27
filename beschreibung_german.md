@@ -1,5 +1,7 @@
 # Schulungsanmeldung
 
+Aktuellere Information in der .odp
+
 ## Beschreibung
 
 Wir wollen den JuLeis aus Baden-Württemberg einfacher, fairer und weniger arbeitsintensiv für die GS
