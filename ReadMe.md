@@ -28,6 +28,8 @@ source .venv/bin/activate & pip install -r requirements.txt
 ## Explanation
 
 There are multiple branches with feasible solutions.
+Check first the `.odp`-file for a general overview.
+The same content is also described here and in german in the other `.md`-file.
 
 ### The Problem
 
