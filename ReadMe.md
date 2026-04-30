@@ -28,6 +28,9 @@ source .venv/bin/activate & pip install -r requirements.txt
 ## Explanation
 
 There are multiple branches with feasible solutions.
+Checkout
+[beschreibung_german.md](beschreibung_german.md) and 
+[Präsentation.pdf](Präsentation.pdf) for a more complete description in german.
 
 ### The Problem
 

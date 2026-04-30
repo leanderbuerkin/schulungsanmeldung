@@ -1,6 +1,6 @@
 # Schulungsanmeldung
 
-Aktuellere Information in der .odp
+Weitere Information in [Präsentation.pdf](Präsentation.pdf).
 
 ## Beschreibung
 
